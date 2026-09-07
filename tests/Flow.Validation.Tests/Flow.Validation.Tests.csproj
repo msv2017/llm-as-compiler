@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Flow.Validation\Flow.Validation.csproj" />
+    <ProjectReference Include="..\..\src\Flow.Contracts\Flow.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Flow.TypeSystem\Flow.TypeSystem.csproj" />
   </ItemGroup>
 
 </Project>
