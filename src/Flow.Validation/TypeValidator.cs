@@ -15,21 +15,7 @@ public sealed class TypeValidator : IWorkflowValidationPass
         var diagnostics = new List<ValidationDiagnostic>();
         var nodeOutputTypes = new Dictionary<string, FlowType>();
 
-        foreach (var node in workflow.Nodes)
-        {
-            if (node is CallNode call && tools.TryGet(call.ToolName, out var tool) && tool is not null)
-            {
-                foreach (var (argumentName, expression) in call.Arguments)
-                {
-                    if (!tool.InputType.Fields.TryGetValue(argumentName, out var expectedType))
-                        continue; // unknown argument — reported by ToolResolutionValidator (F002)
-
-                    CheckExpression(expression, expectedType, call.Id, workflow.InputType, nodeOutputTypes, diagnostics);
-                }
-
-                nodeOutputTypes[call.Id] = tool.OutputType;
-            }
-        }
+        ProcessNodes(workflow.Nodes, workflow.InputType, tools, nodeOutputTypes, diagnostics);
 
         if (workflow.OutputType is ObjectType outputType)
         {
@@ -45,6 +31,64 @@ public sealed class TypeValidator : IWorkflowValidationPass
         return diagnostics;
     }
 
+    private static void ProcessNodes(
+        IReadOnlyList<WorkflowNode> nodes,
+        FlowType inputType,
+        ToolCatalog tools,
+        Dictionary<string, FlowType> nodeOutputTypes,
+        List<ValidationDiagnostic> diagnostics)
+    {
+        foreach (var node in nodes)
+        {
+            switch (node)
+            {
+                case CallNode call when tools.TryGet(call.ToolName, out var tool) && tool is not null:
+                    foreach (var (argumentName, expression) in call.Arguments)
+                    {
+                        if (!tool.InputType.Fields.TryGetValue(argumentName, out var expectedType))
+                            continue; // unknown argument — reported by ToolResolutionValidator (F002)
+                        CheckExpression(expression, expectedType, call.Id, inputType, nodeOutputTypes, diagnostics);
+                    }
+                    nodeOutputTypes[call.Id] = tool.OutputType;
+                    break;
+
+                case IfNode ifNode:
+                    var conditionType = ResolveType(ifNode.Condition, inputType, nodeOutputTypes);
+                    if (conditionType is not null && !TypeCompatibility.IsAssignable(PrimitiveType.Bool, conditionType))
+                    {
+                        diagnostics.Add(new ValidationDiagnostic(
+                            "T101", $"Condition must be Bool but produces {conditionType.DisplayName}.", ifNode.Id));
+                    }
+
+                    ProcessNodes(ifNode.TrueBranch.Nodes, inputType, tools, nodeOutputTypes, diagnostics);
+                    ProcessNodes(ifNode.FalseBranch.Nodes, inputType, tools, nodeOutputTypes, diagnostics);
+
+                    var trueType = ResolveType(ifNode.TrueBranch.Value, inputType, nodeOutputTypes);
+                    var falseType = ResolveType(ifNode.FalseBranch.Value, inputType, nodeOutputTypes);
+
+                    if (trueType is not null && falseType is not null)
+                    {
+                        // Structural compatibility both ways, NOT `trueType == falseType`: FlowType records
+                        // (ObjectType/ListType) hold Dictionary-typed fields, and record-generated equality
+                        // falls back to reference equality for those — two independently-built ObjectTypes
+                        // with identical Name+Fields would otherwise compare unequal.
+                        if (TypeCompatibility.IsAssignable(trueType, falseType) && TypeCompatibility.IsAssignable(falseType, trueType))
+                        {
+                            nodeOutputTypes[ifNode.Id] = trueType;
+                        }
+                        else
+                        {
+                            diagnostics.Add(new ValidationDiagnostic(
+                                "T101",
+                                $"if/else branches must produce the same type: true branch is {trueType.DisplayName}, false branch is {falseType.DisplayName}.",
+                                ifNode.Id));
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+
     private static void CheckExpression(
         FlowExpression expression,
         FlowType expectedType,
@@ -53,15 +97,9 @@ public sealed class TypeValidator : IWorkflowValidationPass
         IReadOnlyDictionary<string, FlowType> nodeOutputTypes,
         List<ValidationDiagnostic> diagnostics)
     {
-        FlowType? actualType = expression switch
-        {
-            ConstantExpression constant => InferConstantType(constant.Value),
-            PathExpression path => PathTypeResolver.Resolve(path.Path, inputType, nodeOutputTypes, out _),
-            _ => null
-        };
-
+        var actualType = ResolveType(expression, inputType, nodeOutputTypes);
         if (actualType is null)
-            return; // unresolved path — reported by DataflowValidator, or a node kind this Phase 1 resolver doesn't cover yet
+            return; // unresolved — reported by DataflowValidator, or a node kind this Phase 1 resolver doesn't cover yet
 
         if (!TypeCompatibility.IsAssignable(expectedType, actualType))
         {
@@ -71,6 +109,21 @@ public sealed class TypeValidator : IWorkflowValidationPass
                 ownerNodeId));
         }
     }
+
+    private static FlowType? ResolveType(
+        FlowExpression expression, FlowType inputType, IReadOnlyDictionary<string, FlowType> nodeOutputTypes) => expression switch
+    {
+        ConstantExpression constant => InferConstantType(constant.Value),
+        PathExpression path => PathTypeResolver.Resolve(path.Path, inputType, nodeOutputTypes, out _),
+        BinaryExpression binary => IsComparisonOrBoolean(binary.Operator) ? PrimitiveType.Bool : null,
+        _ => null
+    };
+
+    private static bool IsComparisonOrBoolean(BinaryOperator op) => op is
+        BinaryOperator.Equal or BinaryOperator.NotEqual or
+        BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual or
+        BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual or
+        BinaryOperator.And or BinaryOperator.Or;
 
     private static FlowType? InferConstantType(object? value) => value switch
     {

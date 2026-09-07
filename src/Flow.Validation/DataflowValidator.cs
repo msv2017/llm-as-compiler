@@ -14,41 +14,69 @@ public sealed class DataflowValidator : IWorkflowValidationPass
         var diagnostics = new List<ValidationDiagnostic>();
         var definedBefore = new HashSet<string> { "input" };
 
-        foreach (var node in workflow.Nodes)
-        {
-            CheckExpressions(node.Id, ExpressionsOf(node), definedBefore, diagnostics);
-            definedBefore.Add(node.Id);
-        }
-
-        CheckExpressions(workflow.Return.Id, ExpressionsOf(workflow.Return), definedBefore, diagnostics);
+        ValidateNodes(workflow.Nodes, definedBefore, diagnostics);
+        CheckExpression(workflow.Return.Id, CombineReturnFields(workflow), definedBefore, diagnostics);
 
         return diagnostics;
     }
 
-    private static void CheckExpressions(
-        string ownerNodeId,
-        IEnumerable<FlowExpression> expressions,
-        HashSet<string> definedBefore,
-        List<ValidationDiagnostic> diagnostics)
+    private static void ValidateNodes(
+        IReadOnlyList<WorkflowNode> nodes, HashSet<string> definedBefore, List<ValidationDiagnostic> diagnostics)
+    {
+        foreach (var node in nodes)
+        {
+            if (node is IfNode ifNode)
+            {
+                CheckExpression(ifNode.Id, ifNode.Condition, definedBefore, diagnostics);
+                ValidateBranch(ifNode.TrueBranch, ifNode.Id, definedBefore, diagnostics);
+                ValidateBranch(ifNode.FalseBranch, ifNode.Id, definedBefore, diagnostics);
+            }
+            else
+            {
+                foreach (var expression in ExpressionsOf(node))
+                {
+                    CheckExpression(node.Id, expression, definedBefore, diagnostics);
+                }
+            }
+
+            definedBefore.Add(node.Id);
+        }
+    }
+
+    private static void ValidateBranch(
+        IfBranch branch, string ifNodeId, HashSet<string> outerDefinedBefore, List<ValidationDiagnostic> diagnostics)
+    {
+        var branchDefined = new HashSet<string>(outerDefinedBefore);
+        ValidateNodes(branch.Nodes, branchDefined, diagnostics);
+        CheckExpression(ifNodeId, branch.Value, branchDefined, diagnostics);
+    }
+
+    private static void CheckExpression(
+        string ownerNodeId, FlowExpression expression, HashSet<string> definedBefore, List<ValidationDiagnostic> diagnostics)
+    {
+        switch (expression)
+        {
+            case PathExpression path:
+                var root = path.Path.Split('.')[0];
+                if (root == ownerNodeId)
+                    diagnostics.Add(new ValidationDiagnostic("D302", $"'{ownerNodeId}' cannot reference itself in '{path.Path}'.", ownerNodeId));
+                else if (!definedBefore.Contains(root))
+                    diagnostics.Add(new ValidationDiagnostic("D301", $"'{path.Path}' references undefined value '{root}'.", ownerNodeId));
+                break;
+            case BinaryExpression binary:
+                CheckExpression(ownerNodeId, binary.Left, definedBefore, diagnostics);
+                CheckExpression(ownerNodeId, binary.Right, definedBefore, diagnostics);
+                break;
+        }
+    }
+
+    private static IEnumerable<FlowExpression> CombineReturnFields(WorkflowDefinition workflow) => workflow.Return.Fields.Values;
+
+    private static void CheckExpression(
+        string ownerNodeId, IEnumerable<FlowExpression> expressions, HashSet<string> definedBefore, List<ValidationDiagnostic> diagnostics)
     {
         foreach (var expression in expressions)
-        {
-            if (expression is not PathExpression path)
-                continue;
-
-            var root = path.Path.Split('.')[0];
-
-            if (root == ownerNodeId)
-            {
-                diagnostics.Add(new ValidationDiagnostic(
-                    "D302", $"'{ownerNodeId}' cannot reference itself in '{path.Path}'.", ownerNodeId));
-            }
-            else if (!definedBefore.Contains(root))
-            {
-                diagnostics.Add(new ValidationDiagnostic(
-                    "D301", $"'{path.Path}' references undefined value '{root}'.", ownerNodeId));
-            }
-        }
+            CheckExpression(ownerNodeId, expression, definedBefore, diagnostics);
     }
 
     // Extend this switch whenever a new WorkflowNode kind is added.
