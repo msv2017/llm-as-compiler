@@ -41,7 +41,12 @@ public class TypeCompatibilityTests
     [Fact]
     public void List_IsAssignable_WhenElementTypesAssignable()
     {
-        var target = new ListType(PrimitiveType.String);
+        // target accepts Optional<string>, source is List<string>.
+        // These ListType records are NOT equal (different ElementTypes),
+        // so they don't hit the == shortcut. But IsAssignable should still
+        // return true by recursively checking element types:
+        // IsAssignable(Optional<string>, string) -> true
+        var target = new ListType(new OptionalType(PrimitiveType.String));
         var source = new ListType(PrimitiveType.String);
         Assert.True(TypeCompatibility.IsAssignable(target, source));
     }
@@ -49,9 +54,12 @@ public class TypeCompatibilityTests
     [Fact]
     public void Object_IsAssignable_WhenNamesMatch()
     {
-        var fields = new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String };
-        var target = new ObjectType("Customer", fields);
-        var source = new ObjectType("Customer", fields);
+        // target and source have the same Name ("Customer") but different Fields.
+        // These ObjectType records are NOT equal (different Fields),
+        // so they don't hit the == shortcut. But IsAssignable should still
+        // return true by checking Name equality only.
+        var target = new ObjectType("Customer", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String });
+        var source = new ObjectType("Customer", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String, ["name"] = PrimitiveType.String });
         Assert.True(TypeCompatibility.IsAssignable(target, source));
     }
 
