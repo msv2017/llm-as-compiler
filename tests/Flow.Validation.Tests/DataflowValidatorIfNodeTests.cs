@@ -40,6 +40,38 @@ public class DataflowValidatorIfNodeTests
         Assert.Empty(diagnostics);
     }
 
+    [Fact]
+    public void BranchLocalNode_VisibleWithinOwnBranch_ProducesNoDiagnostics()
+    {
+        var call = new CallNode("lookupName", "crm.findCustomer",
+            new Dictionary<string, FlowExpression> { ["email"] = new PathExpression("input.flag") });
+        var ifNode = new IfNode(
+            "customerName",
+            new BinaryExpression(new PathExpression("input.flag"), BinaryOperator.Equal, new ConstantExpression(true, Provenance)),
+            new IfBranch(new WorkflowNode[] { call }, new PathExpression("lookupName.name")),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression("fallback", Provenance)));
+
+        var diagnostics = new DataflowValidator().Validate(WorkflowWith(ifNode), EmptyCatalog);
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void BranchLocalNode_NotVisibleInOtherBranch_ProducesD301()
+    {
+        var call = new CallNode("lookupName", "crm.findCustomer",
+            new Dictionary<string, FlowExpression> { ["email"] = new PathExpression("input.flag") });
+        var ifNode = new IfNode(
+            "customerName",
+            new BinaryExpression(new PathExpression("input.flag"), BinaryOperator.Equal, new ConstantExpression(true, Provenance)),
+            new IfBranch(new WorkflowNode[] { call }, new ConstantExpression("", Provenance)),
+            new IfBranch(Array.Empty<WorkflowNode>(), new PathExpression("lookupName.name")));
+
+        var diagnostics = new DataflowValidator().Validate(WorkflowWith(ifNode), EmptyCatalog);
+
+        Assert.Contains(diagnostics, d => d.Code == "D301");
+    }
+
     private static WorkflowDefinition WorkflowWith(IfNode ifNode)
     {
         var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["name"] = new PathExpression("customerName") });

@@ -12,6 +12,16 @@ public class TypeValidatorIfNodeTests
     private static readonly ToolCatalog EmptyCatalog = new(Array.Empty<ToolDefinition>());
     private static readonly ConstantProvenance Provenance = new(ConstantProvenanceKind.HandWritten);
 
+    private static ToolCatalog CatalogWithLookup() => new(new[]
+    {
+        new ToolDefinition(
+            "crm.lookup",
+            new ObjectType("LookupInput", new Dictionary<string, FlowType>()),
+            new ObjectType("LookupResult", new Dictionary<string, FlowType> { ["name"] = PrimitiveType.String }),
+            ToolEffect.Read,
+            ToolRetryPolicy.Safe)
+    });
+
     [Fact]
     public void MismatchedBranchTypes_ProduceT101()
     {
@@ -36,6 +46,21 @@ public class TypeValidatorIfNodeTests
             new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression("b", Provenance)));
 
         var diagnostics = new TypeValidator().Validate(WorkflowWith(ifNode), EmptyCatalog);
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void BranchLocalNodeOutputType_ThreadedIntoBranchValue_ProducesNoDiagnostics()
+    {
+        var call = new CallNode("lookup", "crm.lookup", new Dictionary<string, FlowExpression>());
+        var ifNode = new IfNode(
+            "value",
+            new BinaryExpression(new PathExpression("input.flag"), BinaryOperator.Equal, new ConstantExpression(true, Provenance)),
+            new IfBranch(new WorkflowNode[] { call }, new PathExpression("lookup.name")),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression("fallback", Provenance)));
+
+        var diagnostics = new TypeValidator().Validate(WorkflowWith(ifNode), CatalogWithLookup());
 
         Assert.Empty(diagnostics);
     }
