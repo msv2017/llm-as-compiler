@@ -1,0 +1,6 @@
+.superpowers/
+.claude/worktrees/
+docs/
+bin/
+obj/
+*.user
