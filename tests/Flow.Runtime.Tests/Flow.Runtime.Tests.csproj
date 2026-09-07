@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Flow.Runtime\Flow.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\Flow.IR\Flow.IR.csproj" />
+    <ProjectReference Include="..\..\src\Flow.TypeSystem\Flow.TypeSystem.csproj" />
   </ItemGroup>
 
 </Project>
