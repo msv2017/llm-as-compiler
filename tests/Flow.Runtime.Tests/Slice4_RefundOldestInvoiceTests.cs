@@ -19,10 +19,24 @@ public class Slice4_RefundOldestInvoiceTests
         ["createdAt"] = PrimitiveType.DateTime
     });
 
+    private static List<object?> DefaultInvoices() => new()
+    {
+        new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-2", ["amount"] = 120m, ["status"] = "UNPAID", ["createdAt"] = new DateTime(2026, 2, 1) }),
+        new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-1", ["amount"] = 80m, ["status"] = "UNPAID", ["createdAt"] = new DateTime(2026, 1, 1) }),
+        new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-0", ["amount"] = 999m, ["status"] = "PAID", ["createdAt"] = new DateTime(2025, 1, 1) })
+    };
+
     private sealed class FakeInvoker : IMcpInvoker
     {
         private readonly FlowRecord? _customer;
-        public FakeInvoker(FlowRecord? customer) => _customer = customer;
+        private readonly List<object?> _invoices;
+
+        public FakeInvoker(FlowRecord? customer, List<object?>? invoices = null)
+        {
+            _customer = customer;
+            _invoices = invoices ?? DefaultInvoices();
+        }
+
         public bool RefundCalled { get; private set; }
         public string? RefundedInvoiceId { get; private set; }
 
@@ -31,12 +45,7 @@ public class Slice4_RefundOldestInvoiceTests
             object? result = toolName switch
             {
                 "crm.findCustomer" => _customer,
-                "billing.listInvoices" => new List<object?>
-                {
-                    new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-2", ["amount"] = 120m, ["status"] = "UNPAID", ["createdAt"] = new DateTime(2026, 2, 1) }),
-                    new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-1", ["amount"] = 80m, ["status"] = "UNPAID", ["createdAt"] = new DateTime(2026, 1, 1) }),
-                    new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-0", ["amount"] = 999m, ["status"] = "PAID", ["createdAt"] = new DateTime(2025, 1, 1) })
-                },
+                "billing.listInvoices" => _invoices,
                 "billing.createRefund" => Handle(arguments),
                 _ => throw new InvalidOperationException($"Unexpected tool '{toolName}'.")
             };
@@ -184,6 +193,29 @@ public class Slice4_RefundOldestInvoiceTests
         var result = await new WorkflowExecutor().ExecuteAsync(workflow, input, invoker);
 
         Assert.Equal("", result.Output!.Get("customerName"));
+        Assert.Equal(0m, result.Output!.Get("outstanding"));
+        Assert.Equal(false, result.Output!.Get("refunded"));
+        Assert.False(invoker.RefundCalled);
+    }
+
+    [Fact]
+    public async Task CustomerWithNoUnpaidInvoices_ReturnsZeroOutstanding_WithoutCallingRefund()
+    {
+        // `oldest` (aggregate `first`) has an empty source here — it must bind null instead of throwing.
+        var workflow = BuildWorkflow();
+        Assert.Empty(BuildValidator().Validate(workflow, Catalog()));
+
+        var allPaid = new List<object?>
+        {
+            new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-0", ["amount"] = 999m, ["status"] = "PAID", ["createdAt"] = new DateTime(2025, 1, 1) }),
+            new FlowRecord(new Dictionary<string, object?> { ["id"] = "inv-3", ["amount"] = 10m, ["status"] = "PAID", ["createdAt"] = new DateTime(2026, 3, 1) })
+        };
+        var invoker = new FakeInvoker(new FlowRecord(new Dictionary<string, object?> { ["name"] = "Ada Lovelace" }), allPaid);
+        var input = new FlowRecord(new Dictionary<string, object?> { ["email"] = "ada@example.com" });
+
+        var result = await new WorkflowExecutor().ExecuteAsync(workflow, input, invoker);
+
+        Assert.True(result.Success);
         Assert.Equal(0m, result.Output!.Get("outstanding"));
         Assert.Equal(false, result.Output!.Get("refunded"));
         Assert.False(invoker.RefundCalled);
