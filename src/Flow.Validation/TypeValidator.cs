@@ -131,7 +131,8 @@ public sealed class TypeValidator : IWorkflowValidationPass
                         nodeOutputTypes[aggregateNode.Id] = aggregateNode.Operation switch
                         {
                             AggregateOperation.Count => PrimitiveType.Int,
-                            AggregateOperation.First => listType.ElementType,
+                            // `first` over a possibly-empty list yields no value, so its static type is Optional.
+                            AggregateOperation.First => new OptionalType(listType.ElementType),
                             AggregateOperation.Sum => PrimitiveType.Decimal,
                             _ => listType.ElementType
                         };

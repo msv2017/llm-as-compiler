@@ -114,10 +114,11 @@ public sealed class WorkflowExecutor
             case AggregateNode aggregateNode:
             {
                 var source = ((IEnumerable<object?>)Evaluate(aggregateNode.Source, context)!).ToList();
-                object aggregateResult = aggregateNode.Operation switch
+                object? aggregateResult = aggregateNode.Operation switch
                 {
                     AggregateOperation.Count => source.Count,
-                    AggregateOperation.First => source[0]!,
+                    // `first` is Optional-typed: an empty source binds null rather than throwing.
+                    AggregateOperation.First => source.Count > 0 ? source[0] : null,
                     AggregateOperation.Sum => source.Sum(item =>
                     {
                         context.Bind(aggregateNode.ParameterName!, item);
