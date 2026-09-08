@@ -16,15 +16,22 @@ public sealed class WorkflowExecutor
     {
         var context = new WorkflowExecutionContext(input);
 
-        foreach (var node in workflow.Nodes)
+        try
         {
-            await ExecuteNodeAsync(node, context, invoker, cancellationToken);
+            foreach (var node in workflow.Nodes)
+            {
+                await ExecuteNodeAsync(node, context, invoker, cancellationToken);
+            }
+
+            var outputFields = workflow.Return.Fields.ToDictionary(
+                kv => kv.Key, kv => Evaluate(kv.Value, context));
+
+            return new ExecutionResult(true, new FlowRecord(outputFields));
         }
-
-        var outputFields = workflow.Return.Fields.ToDictionary(
-            kv => kv.Key, kv => Evaluate(kv.Value, context));
-
-        return new ExecutionResult(true, new FlowRecord(outputFields));
+        catch (WorkflowAssertionException ex)
+        {
+            return new ExecutionResult(false, null, ex.FailureCode);
+        }
     }
 
     // Extend this switch whenever a new WorkflowNode kind gains runtime support.
@@ -45,6 +52,33 @@ public sealed class WorkflowExecutor
                 foreach (var branchNode in branch.Nodes)
                     await ExecuteNodeAsync(branchNode, context, invoker, cancellationToken);
                 context.Bind(ifNode.Id, Evaluate(branch.Value, context));
+                break;
+
+            case ForeachNode foreachNode:
+            {
+                var source = ((IEnumerable<object?>)Evaluate(foreachNode.Source, context)!).ToList();
+                if (source.Count > foreachNode.Limit)
+                {
+                    throw new InvalidOperationException(
+                        $"foreach '{foreachNode.Id}' exceeded its limit of {foreachNode.Limit} ({source.Count} items).");
+                }
+
+                var results = new List<object?>();
+                foreach (var item in source)
+                {
+                    context.Bind(foreachNode.ParameterName, item);
+                    foreach (var bodyNode in foreachNode.Body)
+                        await ExecuteNodeAsync(bodyNode, context, invoker, cancellationToken);
+                    results.Add(Evaluate(foreachNode.BodyValue, context));
+                }
+                context.Bind(foreachNode.Id, results);
+                break;
+            }
+
+            case AssertNode assertNode:
+                if (Evaluate(assertNode.Condition, context) is not true)
+                    throw new WorkflowAssertionException(assertNode.FailureCode);
+                context.Bind(assertNode.Id, true);
                 break;
 
             case FilterNode filterNode:
