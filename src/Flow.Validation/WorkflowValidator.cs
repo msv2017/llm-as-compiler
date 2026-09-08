@@ -14,4 +14,14 @@ public sealed class WorkflowValidator
 
     public IReadOnlyList<ValidationDiagnostic> Validate(WorkflowDefinition workflow, ToolCatalog tools)
         => _passes.SelectMany(pass => pass.Validate(workflow, tools)).ToList();
+
+    public static WorkflowValidator CreateDefault() => new(new IWorkflowValidationPass[]
+    {
+        new ToolResolutionValidator(),
+        new DataflowValidator(),
+        new TypeValidator(),
+        new NullabilityValidator(),
+        new OutputValidator(),
+        new BoundednessValidator()
+    });
 }
