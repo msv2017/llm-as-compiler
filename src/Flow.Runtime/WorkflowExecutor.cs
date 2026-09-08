@@ -47,6 +47,54 @@ public sealed class WorkflowExecutor
                 context.Bind(ifNode.Id, Evaluate(branch.Value, context));
                 break;
 
+            case FilterNode filterNode:
+            {
+                var source = (IEnumerable<object?>)Evaluate(filterNode.Source, context)!;
+                var filtered = new List<object?>();
+                foreach (var item in source)
+                {
+                    context.Bind(filterNode.ParameterName, item);
+                    if (Evaluate(filterNode.Predicate, context) is true)
+                        filtered.Add(item);
+                }
+                context.Bind(filterNode.Id, filtered);
+                break;
+            }
+
+            case SortNode sortNode:
+            {
+                var source = (IEnumerable<object?>)Evaluate(sortNode.Source, context)!;
+                var keyed = new List<(object? Item, object Key)>();
+                foreach (var item in source)
+                {
+                    context.Bind(sortNode.ParameterName, item);
+                    keyed.Add((item, Evaluate(sortNode.Key, context)!));
+                }
+                var ordered = sortNode.Direction == SortDirection.Ascending
+                    ? keyed.OrderBy(k => k.Key, Comparer<object>.Default)
+                    : keyed.OrderByDescending(k => k.Key, Comparer<object>.Default);
+                context.Bind(sortNode.Id, ordered.Select(k => k.Item).ToList());
+                break;
+            }
+
+            case AggregateNode aggregateNode:
+            {
+                var source = ((IEnumerable<object?>)Evaluate(aggregateNode.Source, context)!).ToList();
+                object aggregateResult = aggregateNode.Operation switch
+                {
+                    AggregateOperation.Count => source.Count,
+                    AggregateOperation.First => source[0]!,
+                    AggregateOperation.Sum => source.Sum(item =>
+                    {
+                        context.Bind(aggregateNode.ParameterName!, item);
+                        return Convert.ToDecimal(Evaluate(aggregateNode.Selector!, context));
+                    }),
+                    _ => throw new NotSupportedException($"Aggregate operation '{aggregateNode.Operation}' is not supported yet.")
+                };
+                context.Bind(aggregateNode.Id, aggregateResult);
+                break;
+            }
+
             default:
                 throw new NotSupportedException($"Node kind '{node.GetType().Name}' is not supported yet.");
         }
