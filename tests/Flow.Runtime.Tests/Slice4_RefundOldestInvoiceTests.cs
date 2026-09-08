@@ -89,9 +89,18 @@ public class Slice4_RefundOldestInvoiceTests
 
         var refundCall = new CallNode("refundCall", "billing.createRefund",
             new Dictionary<string, FlowExpression> { ["invoiceId"] = new PathExpression("oldest.id") });
+        // `oldest` is Optional (aggregate `first` over a possibly-empty list), so dereferencing
+        // `oldest.id` needs an explicit null guard. At runtime `oldest` can only be null when
+        // unpaidCount == 0, which already makes shouldRefund false — but that is an arithmetic
+        // implication the nullability pass cannot infer, so the check is stated in the IR.
+        var refundIfPresent = new IfNode(
+            "refundOutcome",
+            new BinaryExpression(new PathExpression("oldest"), BinaryOperator.NotEqual, new ConstantExpression(null, Provenance)),
+            new IfBranch(new WorkflowNode[] { refundCall }, new ConstantExpression(true, Provenance)),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression(false, Provenance)));
         var refundGuard = new IfNode(
             "refundedFlag", shouldRefund,
-            new IfBranch(new WorkflowNode[] { refundCall }, new ConstantExpression(true, Provenance)),
+            new IfBranch(new WorkflowNode[] { refundIfPresent }, new PathExpression("refundOutcome")),
             new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression(false, Provenance)));
 
         var customerFoundPipeline = new WorkflowNode[] { listInvoices, unpaid, ordered, total, count, oldest, refundGuard };
