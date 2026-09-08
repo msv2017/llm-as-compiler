@@ -103,4 +103,26 @@ public class TypeCompatibilityTests
         });
         Assert.False(TypeCompatibility.IsAssignable(target, source));
     }
+
+    [Fact]
+    public void NamedTarget_IsAssignable_FromStructurallyMatchingAnonymousSource()
+    {
+        // An ObjectExpression always resolves to "Anonymous"; flowing one into a position typed by a
+        // real tool schema (call argument, return field) must compare structurally, not nominally.
+        var target = new ObjectType("Address", new Dictionary<string, FlowType> { ["city"] = PrimitiveType.String });
+        var source = new ObjectType("Anonymous", new Dictionary<string, FlowType> { ["city"] = PrimitiveType.String });
+        Assert.True(TypeCompatibility.IsAssignable(target, source));
+    }
+
+    [Fact]
+    public void NamedTarget_IsNotAssignable_FromAnonymousSourceMissingAField()
+    {
+        var target = new ObjectType("Address", new Dictionary<string, FlowType>
+        {
+            ["city"] = PrimitiveType.String,
+            ["zip"] = PrimitiveType.String
+        });
+        var source = new ObjectType("Anonymous", new Dictionary<string, FlowType> { ["city"] = PrimitiveType.String });
+        Assert.False(TypeCompatibility.IsAssignable(target, source));
+    }
 }

@@ -30,7 +30,7 @@ public static class TypeCompatibility
 
         if (target is ObjectType objectTarget && source is ObjectType objectSource)
         {
-            if (objectTarget.Name == "Anonymous" && objectSource.Name == "Anonymous")
+            if (objectTarget.Name == "Anonymous" || objectSource.Name == "Anonymous")
                 return IsStructurallyAssignable(objectTarget, objectSource);
             return objectTarget.Name == objectSource.Name;
         }
