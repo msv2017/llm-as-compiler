@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\Flow.Contracts\Flow.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Flow.TypeSystem\Flow.TypeSystem.csproj" />
     <ProjectReference Include="..\..\src\Flow.IR\Flow.IR.csproj" />
+    <ProjectReference Include="..\..\src\Flow.Analysis\Flow.Analysis.csproj" />
   </ItemGroup>
 
 </Project>
