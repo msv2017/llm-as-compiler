@@ -69,4 +69,38 @@ public class TypeCompatibilityTests
         var source = new SemanticType("CustomerId", PrimitiveType.String);
         Assert.True(TypeCompatibility.IsAssignable(PrimitiveType.String, source));
     }
+
+    [Fact]
+    public void Anonymous_IsAssignable_WhenFieldsStructurallyMatch()
+    {
+        var target = new ObjectType("Anonymous", new Dictionary<string, FlowType>
+        {
+            ["customerName"] = PrimitiveType.String,
+            ["outstanding"] = PrimitiveType.Decimal
+        });
+        var source = new ObjectType("Anonymous", new Dictionary<string, FlowType>
+        {
+            ["customerName"] = PrimitiveType.String,
+            ["outstanding"] = PrimitiveType.Decimal
+        });
+        Assert.True(TypeCompatibility.IsAssignable(target, source));
+    }
+
+    [Fact]
+    public void Anonymous_IsNotAssignable_WhenFieldsDiffer()
+    {
+        var target = new ObjectType("Anonymous", new Dictionary<string, FlowType>
+        {
+            ["customerName"] = PrimitiveType.String,
+            ["outstanding"] = PrimitiveType.Decimal,
+            ["refunded"] = PrimitiveType.Bool
+        });
+        var source = new ObjectType("Anonymous", new Dictionary<string, FlowType>
+        {
+            ["customerName"] = PrimitiveType.String,
+            ["outstanding"] = PrimitiveType.Decimal
+            // missing "refunded"
+        });
+        Assert.False(TypeCompatibility.IsAssignable(target, source));
+    }
 }

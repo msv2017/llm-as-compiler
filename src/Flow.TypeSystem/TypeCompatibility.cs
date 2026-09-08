@@ -29,11 +29,27 @@ public static class TypeCompatibility
             return IsAssignable(listTarget.ElementType, listSource.ElementType);
 
         if (target is ObjectType objectTarget && source is ObjectType objectSource)
+        {
+            if (objectTarget.Name == "Anonymous" && objectSource.Name == "Anonymous")
+                return IsStructurallyAssignable(objectTarget, objectSource);
             return objectTarget.Name == objectSource.Name;
+        }
 
         if (target is EnumType enumTarget && source is EnumType enumSource)
             return enumTarget.Name == enumSource.Name;
 
         return false;
+    }
+
+    private static bool IsStructurallyAssignable(ObjectType target, ObjectType source)
+    {
+        foreach (var (fieldName, fieldType) in target.Fields)
+        {
+            if (!source.Fields.TryGetValue(fieldName, out var sourceFieldType))
+                return false;
+            if (!IsAssignable(fieldType, sourceFieldType))
+                return false;
+        }
+        return true;
     }
 }
