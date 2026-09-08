@@ -138,6 +138,32 @@ public sealed class TypeValidator : IWorkflowValidationPass
                     }
                     break;
                 }
+
+                case ForeachNode foreachNode:
+                {
+                    var sourceType = ResolveType(foreachNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                    {
+                        var scoped = new Dictionary<string, FlowType>(nodeOutputTypes) { [foreachNode.ParameterName] = listType.ElementType };
+                        ProcessNodes(foreachNode.Body, inputType, tools, scoped, diagnostics);
+                        var bodyValueType = ResolveType(foreachNode.BodyValue, inputType, scoped);
+                        if (bodyValueType is not null)
+                            nodeOutputTypes[foreachNode.Id] = new ListType(bodyValueType);
+                    }
+                    break;
+                }
+
+                case AssertNode assertNode:
+                {
+                    var assertConditionType = ResolveType(assertNode.Condition, inputType, nodeOutputTypes);
+                    if (assertConditionType is not null && !TypeCompatibility.IsAssignable(PrimitiveType.Bool, assertConditionType))
+                    {
+                        diagnostics.Add(new ValidationDiagnostic(
+                            "T101", $"assert condition must be Bool but produces {assertConditionType.DisplayName}.", assertNode.Id));
+                    }
+                    nodeOutputTypes[assertNode.Id] = PrimitiveType.Bool;
+                    break;
+                }
             }
         }
     }

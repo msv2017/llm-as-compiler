@@ -61,6 +61,17 @@ public sealed class DataflowValidator : IWorkflowValidationPass
                     CheckExpression(aggregateNode.Id, aggregateNode.Selector, scope, diagnostics);
                 }
             }
+            else if (node is ForeachNode foreachNode)
+            {
+                CheckExpression(foreachNode.Id, foreachNode.Source, definedBefore, diagnostics);
+                var scope = new HashSet<string>(definedBefore) { foreachNode.ParameterName };
+                ValidateNodes(foreachNode.Body, scope, diagnostics);
+                CheckExpression(foreachNode.Id, foreachNode.BodyValue, scope, diagnostics);
+            }
+            else if (node is AssertNode assertNode)
+            {
+                CheckExpression(assertNode.Id, assertNode.Condition, definedBefore, diagnostics);
+            }
             else
             {
                 foreach (var expression in ExpressionsOf(node))
