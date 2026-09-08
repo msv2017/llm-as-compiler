@@ -27,7 +27,7 @@ public class Slice3_OutstandingBalanceTests
                 "billing.listInvoices" => new List<object?>
                 {
                     new FlowRecord(new Dictionary<string, object?> { ["amount"] = 100m, ["createdAt"] = new DateTime(2026, 2, 1) }),
-                    new FlowRecord(new Dictionary<string, object?> { ["amount"] = 0m, ["createdAt"] = new DateTime(2026, 1, 1) }),
+                    new FlowRecord(new Dictionary<string, object?> { ["amount"] = -20m, ["createdAt"] = new DateTime(2026, 1, 1) }),
                     new FlowRecord(new Dictionary<string, object?> { ["amount"] = 50m, ["createdAt"] = new DateTime(2026, 1, 15) })
                 },
                 _ => throw new InvalidOperationException($"Unexpected tool call '{toolName}'.")
