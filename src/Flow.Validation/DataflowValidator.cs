@@ -108,6 +108,10 @@ public sealed class DataflowValidator : IWorkflowValidationPass
                 CheckExpression(ownerNodeId, binary.Left, definedBefore, diagnostics);
                 CheckExpression(ownerNodeId, binary.Right, definedBefore, diagnostics);
                 break;
+            case ObjectExpression obj:
+                foreach (var fieldExpression in obj.Fields.Values)
+                    CheckExpression(ownerNodeId, fieldExpression, definedBefore, diagnostics);
+                break;
         }
     }
 

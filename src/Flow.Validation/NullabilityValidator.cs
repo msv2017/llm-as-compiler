@@ -118,6 +118,10 @@ public sealed class NullabilityValidator : IWorkflowValidationPass
                 CheckExpression(ownerNodeId, binary.Left, inputType, nodeOutputTypes, safe, diagnostics);
                 CheckExpression(ownerNodeId, binary.Right, inputType, nodeOutputTypes, safe, diagnostics);
                 break;
+            case ObjectExpression obj:
+                foreach (var fieldExpression in obj.Fields.Values)
+                    CheckExpression(ownerNodeId, fieldExpression, inputType, nodeOutputTypes, safe, diagnostics);
+                break;
         }
     }
 }

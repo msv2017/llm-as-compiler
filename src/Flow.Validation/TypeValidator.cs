@@ -195,8 +195,23 @@ public sealed class TypeValidator : IWorkflowValidationPass
         ConstantExpression constant => InferConstantType(constant.Value),
         PathExpression path => PathTypeResolver.Resolve(path.Path, inputType, nodeOutputTypes, out _),
         BinaryExpression binary => IsComparisonOrBoolean(binary.Operator) ? PrimitiveType.Bool : null,
+        ObjectExpression obj => ResolveObjectType(obj, inputType, nodeOutputTypes),
         _ => null
     };
+
+    private static FlowType? ResolveObjectType(
+        ObjectExpression obj, FlowType inputType, IReadOnlyDictionary<string, FlowType> nodeOutputTypes)
+    {
+        var fields = new Dictionary<string, FlowType>();
+        foreach (var (fieldName, fieldExpression) in obj.Fields)
+        {
+            var fieldType = ResolveType(fieldExpression, inputType, nodeOutputTypes);
+            if (fieldType is null)
+                return null;
+            fields[fieldName] = fieldType;
+        }
+        return new ObjectType("Anonymous", fields);
+    }
 
     private static bool IsComparisonOrBoolean(BinaryOperator op) => op is
         BinaryOperator.Equal or BinaryOperator.NotEqual or

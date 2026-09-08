@@ -139,6 +139,7 @@ public sealed class WorkflowExecutor
         PathExpression path => context.Resolve(path.Path),
         ConstantExpression constant => constant.Value,
         BinaryExpression binary => EvaluateBinary(binary, context),
+        ObjectExpression obj => new FlowRecord(obj.Fields.ToDictionary(kv => kv.Key, kv => Evaluate(kv.Value, context))),
         _ => throw new NotSupportedException($"Expression kind '{expression.GetType().Name}' is not supported yet.")
     };
 
