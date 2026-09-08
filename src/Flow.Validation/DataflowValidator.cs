@@ -2,6 +2,7 @@ using Flow.Contracts;
 using Flow.IR;
 using Flow.IR.Expressions;
 using Flow.IR.Nodes;
+using Flow.TypeSystem;
 
 namespace Flow.Validation;
 
@@ -13,6 +14,14 @@ public sealed class DataflowValidator : IWorkflowValidationPass
     {
         var diagnostics = new List<ValidationDiagnostic>();
         var definedBefore = new HashSet<string> { "input" };
+
+        if (workflow.InputType is ObjectType inputType)
+        {
+            foreach (var fieldName in inputType.Fields.Keys)
+            {
+                definedBefore.Add(fieldName);
+            }
+        }
 
         ValidateNodes(workflow.Nodes, definedBefore, diagnostics);
         CheckExpression(workflow.Return.Id, CombineReturnFields(workflow), definedBefore, diagnostics);
@@ -30,6 +39,27 @@ public sealed class DataflowValidator : IWorkflowValidationPass
                 CheckExpression(ifNode.Id, ifNode.Condition, definedBefore, diagnostics);
                 ValidateBranch(ifNode.TrueBranch, ifNode.Id, definedBefore, diagnostics);
                 ValidateBranch(ifNode.FalseBranch, ifNode.Id, definedBefore, diagnostics);
+            }
+            else if (node is FilterNode filterNode)
+            {
+                CheckExpression(filterNode.Id, filterNode.Source, definedBefore, diagnostics);
+                var scope = new HashSet<string>(definedBefore) { filterNode.ParameterName };
+                CheckExpression(filterNode.Id, filterNode.Predicate, scope, diagnostics);
+            }
+            else if (node is SortNode sortNode)
+            {
+                CheckExpression(sortNode.Id, sortNode.Source, definedBefore, diagnostics);
+                var scope = new HashSet<string>(definedBefore) { sortNode.ParameterName };
+                CheckExpression(sortNode.Id, sortNode.Key, scope, diagnostics);
+            }
+            else if (node is AggregateNode aggregateNode)
+            {
+                CheckExpression(aggregateNode.Id, aggregateNode.Source, definedBefore, diagnostics);
+                if (aggregateNode.Selector is not null && aggregateNode.ParameterName is not null)
+                {
+                    var scope = new HashSet<string>(definedBefore) { aggregateNode.ParameterName };
+                    CheckExpression(aggregateNode.Id, aggregateNode.Selector, scope, diagnostics);
+                }
             }
             else
             {

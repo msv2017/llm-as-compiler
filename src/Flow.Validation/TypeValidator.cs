@@ -15,6 +15,14 @@ public sealed class TypeValidator : IWorkflowValidationPass
         var diagnostics = new List<ValidationDiagnostic>();
         var nodeOutputTypes = new Dictionary<string, FlowType>();
 
+        if (workflow.InputType is ObjectType inputType)
+        {
+            foreach (var (fieldName, fieldType) in inputType.Fields)
+            {
+                nodeOutputTypes[fieldName] = fieldType;
+            }
+        }
+
         ProcessNodes(workflow.Nodes, workflow.InputType, tools, nodeOutputTypes, diagnostics);
 
         if (workflow.OutputType is ObjectType outputType)
@@ -85,6 +93,51 @@ public sealed class TypeValidator : IWorkflowValidationPass
                         }
                     }
                     break;
+
+                case FilterNode filterNode:
+                {
+                    var sourceType = ResolveType(filterNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                    {
+                        var scoped = new Dictionary<string, FlowType>(nodeOutputTypes) { [filterNode.ParameterName] = listType.ElementType };
+                        var predicateType = ResolveType(filterNode.Predicate, inputType, scoped);
+                        if (predicateType is not null && !TypeCompatibility.IsAssignable(PrimitiveType.Bool, predicateType))
+                        {
+                            diagnostics.Add(new ValidationDiagnostic(
+                                "T101", $"filter predicate must be Bool but produces {predicateType.DisplayName}.", filterNode.Id));
+                        }
+                        nodeOutputTypes[filterNode.Id] = listType;
+                    }
+                    break;
+                }
+
+                case SortNode sortNode:
+                {
+                    var sourceType = ResolveType(sortNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                    {
+                        // Key comparability is not validated in Phase 1 — trusted from hand-authored IR.
+                        nodeOutputTypes[sortNode.Id] = listType;
+                    }
+                    break;
+                }
+
+                case AggregateNode aggregateNode:
+                {
+                    var sourceType = ResolveType(aggregateNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                    {
+                        // Selector's numeric-ness for Sum is not validated in Phase 1 — trusted from hand-authored IR.
+                        nodeOutputTypes[aggregateNode.Id] = aggregateNode.Operation switch
+                        {
+                            AggregateOperation.Count => PrimitiveType.Int,
+                            AggregateOperation.First => listType.ElementType,
+                            AggregateOperation.Sum => PrimitiveType.Decimal,
+                            _ => listType.ElementType
+                        };
+                    }
+                    break;
+                }
             }
         }
     }
