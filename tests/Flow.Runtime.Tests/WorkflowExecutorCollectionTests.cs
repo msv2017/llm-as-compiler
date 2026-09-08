@@ -50,4 +50,62 @@ public class WorkflowExecutorCollectionTests
 
         Assert.Equal(150m, result.Output!.Get("outstanding"));
     }
+
+    [Fact]
+    public async Task Sort_Ascending_OrdersInvoicesByCreatedAt()
+    {
+        var sort = new SortNode("ordered", new PathExpression("input.invoices"), "x", new PathExpression("x.createdAt"), SortDirection.Ascending);
+        var earliest = new AggregateNode("earliest", new PathExpression("ordered"), AggregateOperation.First, null, null);
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["amount"] = new PathExpression("earliest.amount") });
+
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType>
+        {
+            ["amount"] = PrimitiveType.Decimal,
+            ["createdAt"] = PrimitiveType.DateTime
+        });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType> { ["invoices"] = new ListType(invoiceType) });
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["amount"] = PrimitiveType.Decimal });
+        var workflow = new WorkflowDefinition("SortAscTest", inputType, outputType, new WorkflowNode[] { sort, earliest }, returnNode);
+
+        var invoices = new List<object?>
+        {
+            Invoice(100m, new DateTime(2026, 2, 1)),
+            Invoice(75m, new DateTime(2026, 1, 1)),
+            Invoice(50m, new DateTime(2026, 1, 15))
+        };
+        var input = new FlowRecord(new Dictionary<string, object?> { ["invoices"] = invoices });
+
+        var result = await new WorkflowExecutor().ExecuteAsync(workflow, input, new NoOpInvoker());
+
+        Assert.Equal(75m, result.Output!.Get("amount")); // earliest createdAt (Jan 1) has amount 75
+    }
+
+    [Fact]
+    public async Task Sort_Descending_OrdersInvoicesByCreatedAt()
+    {
+        var sort = new SortNode("ordered", new PathExpression("input.invoices"), "x", new PathExpression("x.createdAt"), SortDirection.Descending);
+        var latest = new AggregateNode("latest", new PathExpression("ordered"), AggregateOperation.First, null, null);
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["amount"] = new PathExpression("latest.amount") });
+
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType>
+        {
+            ["amount"] = PrimitiveType.Decimal,
+            ["createdAt"] = PrimitiveType.DateTime
+        });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType> { ["invoices"] = new ListType(invoiceType) });
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["amount"] = PrimitiveType.Decimal });
+        var workflow = new WorkflowDefinition("SortDescTest", inputType, outputType, new WorkflowNode[] { sort, latest }, returnNode);
+
+        var invoices = new List<object?>
+        {
+            Invoice(100m, new DateTime(2026, 2, 1)),
+            Invoice(75m, new DateTime(2026, 1, 1)),
+            Invoice(50m, new DateTime(2026, 1, 15))
+        };
+        var input = new FlowRecord(new Dictionary<string, object?> { ["invoices"] = invoices });
+
+        var result = await new WorkflowExecutor().ExecuteAsync(workflow, input, new NoOpInvoker());
+
+        Assert.Equal(100m, result.Output!.Get("amount")); // latest createdAt (Feb 1) has amount 100
+    }
 }
