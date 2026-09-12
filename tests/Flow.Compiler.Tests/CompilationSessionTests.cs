@@ -66,4 +66,63 @@ public class CompilationSessionTests
         Assert.Single(result.Unresolved);
         Assert.Empty(model.RepairRequestsReceived);
     }
+
+    [Fact]
+    public async Task RepairSucceeds_ReportsFinalCandidateAssumptions_NotFirstCandidateAssumptions()
+    {
+        var firstCandidate = new CandidateWorkflowAst(
+            new CandidateWorkflowBody(
+                "FindCustomerName",
+                new CandidateNode[]
+                {
+                    new CandidateCallNode("customer", "crm.doesNotExist",
+                        new Dictionary<string, CandidateExpression> { ["id"] = new CandidatePathExpression("input.customerId") })
+                },
+                new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") }),
+            Array.Empty<string>(), new[] { "first-candidate-assumption" }, Array.Empty<string>());
+        var secondCandidate = ValidCandidate(new[] { "second-candidate-assumption" });
+
+        var model = new ScriptedSemanticCompilerModel(firstCandidate, secondCandidate);
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        Assert.Equal(CompilationStatus.Success, result.Status);
+        Assert.Contains(result.Assumptions, a => a.Description == "second-candidate-assumption");
+        Assert.DoesNotContain(result.Assumptions, a => a.Description == "first-candidate-assumption");
+    }
+
+    [Fact]
+    public async Task UnresolvedEntry_WithoutRecognizableCodePrefix_FallsBackToS203()
+    {
+        var candidate = new CandidateWorkflowAst(
+            new CandidateWorkflowBody("Unresolvable", Array.Empty<CandidateNode>(), new Dictionary<string, CandidateExpression>()),
+            Array.Empty<string>(), Array.Empty<string>(),
+            new[] { "the phrase 'sounds angry' has no deterministic definition" });
+        var model = new ScriptedSemanticCompilerModel(candidate);
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        var unresolved = Assert.Single(result.Unresolved);
+        Assert.Equal("S203", unresolved.Code);
+        Assert.Equal("the phrase 'sounds angry' has no deterministic definition", unresolved.Description);
+    }
+
+    [Fact]
+    public async Task UnresolvedEntry_WithRecognizableCodePrefix_ParsesCodeAndDescription()
+    {
+        var candidate = new CandidateWorkflowAst(
+            new CandidateWorkflowBody("Unresolvable", Array.Empty<CandidateNode>(), new Dictionary<string, CandidateExpression>()),
+            Array.Empty<string>(), Array.Empty<string>(),
+            new[] { "S202: no rule" });
+        var model = new ScriptedSemanticCompilerModel(candidate);
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        var unresolved = Assert.Single(result.Unresolved);
+        Assert.Equal("S202", unresolved.Code);
+        Assert.Equal("no rule", unresolved.Description);
+    }
 }

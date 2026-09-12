@@ -8,7 +8,7 @@ namespace Flow.Compiler.Tests;
 public class CompilationResultTests
 {
     [Fact]
-    public void SuccessResult_CarriesWorkflowAndNoDiagnostics()
+    public void UncompilableResult_CarriesDiagnosticsAssumptionsAndUnresolved()
     {
         var inputType = new ObjectType("Request", new Dictionary<string, FlowType> { ["email"] = PrimitiveType.String });
         var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["name"] = PrimitiveType.String });

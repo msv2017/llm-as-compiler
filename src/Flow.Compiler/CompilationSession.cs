@@ -29,18 +29,26 @@ public sealed class CompilationSession
 
         var outcome = await _repairLoop.RunAsync(source, tools, candidate, cancellationToken);
 
-        return outcome.Success
-            ? new CompilationResult(
-                CompilationStatus.Success, outcome.Workflow, Array.Empty<ValidationDiagnostic>(), assumptions, Array.Empty<UnresolvedSemantic>())
-            : new CompilationResult(
-                CompilationStatus.Uncompilable, null, outcome.Diagnostics, assumptions, Array.Empty<UnresolvedSemantic>());
+        if (outcome.Success)
+        {
+            var finalAssumptions = outcome.FinalCandidate!.Assumptions.Select(a => new CompilerAssumption(a)).ToList();
+            return new CompilationResult(
+                CompilationStatus.Success, outcome.Workflow, Array.Empty<ValidationDiagnostic>(), finalAssumptions, Array.Empty<UnresolvedSemantic>());
+        }
+
+        return new CompilationResult(
+            CompilationStatus.Uncompilable, null, outcome.Diagnostics, assumptions, Array.Empty<UnresolvedSemantic>());
     }
 
     private static UnresolvedSemantic ParseUnresolved(string entry)
     {
         var separatorIndex = entry.IndexOf(':');
-        return separatorIndex > 0
-            ? new UnresolvedSemantic(entry[..separatorIndex].Trim(), entry[(separatorIndex + 1)..].Trim())
-            : new UnresolvedSemantic("S203", entry);
+        if (separatorIndex > 0)
+        {
+            var prefix = entry[..separatorIndex].Trim();
+            if (System.Text.RegularExpressions.Regex.IsMatch(prefix, @"^S\d{3}$"))
+                return new UnresolvedSemantic(prefix, entry[(separatorIndex + 1)..].Trim());
+        }
+        return new UnresolvedSemantic("S203", entry);
     }
 }

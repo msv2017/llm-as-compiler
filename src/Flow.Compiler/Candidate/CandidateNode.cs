@@ -2,6 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace Flow.Compiler.Candidate;
 
+// Any producer of this JSON shape (a real model provider, a hand-written fixture) MUST emit "kind" as the
+// FIRST property of every node object. System.Text.Json's polymorphic deserialization requires the type
+// discriminator to be the first property read for elements inside a collection (IReadOnlyList<CandidateNode>
+// below) -- otherwise it throws NotSupportedException even though "kind" is present later in the object.
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(CandidateCallNode), "call")]
 [JsonDerivedType(typeof(CandidateIfNode), "if")]
