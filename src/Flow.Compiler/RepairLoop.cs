@@ -40,10 +40,20 @@ public sealed class RepairLoop
 
         while (true)
         {
-            var workflow = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
-            var diagnostics = _validator.Validate(workflow, tools);
+            WorkflowDefinition? workflow;
+            IReadOnlyList<ValidationDiagnostic> diagnostics;
+            try
+            {
+                workflow = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
+                diagnostics = _validator.Validate(workflow, tools);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+            {
+                workflow = null;
+                diagnostics = new[] { new ValidationDiagnostic("C001", $"Candidate could not be converted to IR: {ex.Message}") };
+            }
 
-            if (diagnostics.Count == 0)
+            if (workflow is not null && diagnostics.Count == 0)
                 return RepairOutcome.Succeeded(workflow, candidate, attempt);
 
             if (attempt >= _maxAttempts)

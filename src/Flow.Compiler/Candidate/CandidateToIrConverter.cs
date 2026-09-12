@@ -57,8 +57,12 @@ public static class CandidateToIrConverter
 
     private static BinaryOperator ParseOperator(string op) => Enum.Parse<BinaryOperator>(op, ignoreCase: true);
 
-    private static SortDirection ParseDirection(string direction) =>
-        direction.Equals("Descending", StringComparison.OrdinalIgnoreCase) ? SortDirection.Descending : SortDirection.Ascending;
+    private static SortDirection ParseDirection(string direction) => direction.ToUpperInvariant() switch
+    {
+        "ASCENDING" => SortDirection.Ascending,
+        "DESCENDING" => SortDirection.Descending,
+        _ => throw new ArgumentException($"Unrecognized sort direction '{direction}'.")
+    };
 
     private static AggregateOperation ParseOperation(string operation) => Enum.Parse<AggregateOperation>(operation, ignoreCase: true);
 

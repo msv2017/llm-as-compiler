@@ -45,6 +45,20 @@ public class RepairLoopTests
             new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") }),
         Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>());
 
+    private static CandidateWorkflowAst CandidateWithBadBinaryOperator() => new(
+        new CandidateWorkflowBody(
+            "FindCustomerName",
+            new CandidateNode[]
+            {
+                new CandidateCallNode("customer", "crm.getCustomerById",
+                    new Dictionary<string, CandidateExpression> { ["id"] = new CandidatePathExpression("input.customerId") }),
+                new CandidateAssertNode("guard",
+                    new CandidateBinaryExpression(new CandidatePathExpression("customer.name"), "gt", new CandidateConstantExpression("", "PROMPT")),
+                    "NOT_OK")
+            },
+            new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") }),
+        Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>());
+
     [Fact]
     public async Task ValidFirstCandidate_SucceedsWithZeroRepairAttempts()
     {
@@ -86,5 +100,19 @@ public class RepairLoopTests
         Assert.Null(outcome.Workflow);
         Assert.NotEmpty(outcome.Diagnostics);
         Assert.Equal(2, model.RepairRequestsReceived.Count);
+    }
+
+    [Fact]
+    public async Task MalformedEnumInCandidate_ProducesC001Diagnostic_AndRepairsSuccessfully()
+    {
+        var model = new ScriptedSemanticCompilerModel(ValidCandidate());
+        var loop = new RepairLoop(model, WorkflowValidator.CreateDefault());
+
+        var outcome = await loop.RunAsync(Source(), Catalog(), CandidateWithBadBinaryOperator(), CancellationToken.None);
+
+        Assert.True(outcome.Success);
+        Assert.Equal(1, outcome.AttemptsUsed);
+        var received = Assert.Single(model.RepairRequestsReceived);
+        Assert.Contains(received.Diagnostics, d => d.Code == "C001" && d.Message.Contains("gt"));
     }
 }
