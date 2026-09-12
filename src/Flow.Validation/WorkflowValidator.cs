@@ -23,6 +23,7 @@ public sealed class WorkflowValidator
         new NullabilityValidator(),
         new OutputValidator(),
         new BoundednessValidator(),
-        new ConstantProvenanceValidator()
+        new ConstantProvenanceValidator(),
+        new SemanticBindingValidator()
     });
 }
