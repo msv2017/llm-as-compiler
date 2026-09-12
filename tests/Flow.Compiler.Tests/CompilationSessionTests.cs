@@ -93,7 +93,7 @@ public class CompilationSessionTests
     }
 
     [Fact]
-    public async Task UnresolvedEntry_WithoutRecognizableCodePrefix_FallsBackToS203()
+    public async Task UnresolvedEntry_WithoutColon_FallsBackToS203()
     {
         var candidate = new CandidateWorkflowAst(
             new CandidateWorkflowBody("Unresolvable", Array.Empty<CandidateNode>(), new Dictionary<string, CandidateExpression>()),
@@ -107,6 +107,26 @@ public class CompilationSessionTests
         var unresolved = Assert.Single(result.Unresolved);
         Assert.Equal("S203", unresolved.Code);
         Assert.Equal("the phrase 'sounds angry' has no deterministic definition", unresolved.Description);
+    }
+
+    [Fact]
+    public async Task UnresolvedEntry_WithColonButNoRecognizableCodePrefix_FallsBackToS203()
+    {
+        // The prefix before ':' ("Note") is NOT an S### code shape, so ParseUnresolved must reject it as a
+        // code and fall back to S203 with the whole entry as the description -- proving the regex guard
+        // actually rejects untrusted model text, not just that a no-colon entry falls back correctly.
+        var candidate = new CandidateWorkflowAst(
+            new CandidateWorkflowBody("Unresolvable", Array.Empty<CandidateNode>(), new Dictionary<string, CandidateExpression>()),
+            Array.Empty<string>(), Array.Empty<string>(),
+            new[] { "Note: sounds angry has no deterministic rule" });
+        var model = new ScriptedSemanticCompilerModel(candidate);
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        var unresolved = Assert.Single(result.Unresolved);
+        Assert.Equal("S203", unresolved.Code);
+        Assert.Equal("Note: sounds angry has no deterministic rule", unresolved.Description);
     }
 
     [Fact]
