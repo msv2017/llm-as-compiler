@@ -19,8 +19,8 @@ public class CandidateWorkflowAstJsonTests
             "name": "RefundOldestInvoice",
             "nodes": [
               {
-                "id": "customer",
                 "kind": "call",
+                "id": "customer",
                 "tool": "crm.findCustomer",
                 "arguments": {
                   "email": { "kind": "path", "path": "input.email" }

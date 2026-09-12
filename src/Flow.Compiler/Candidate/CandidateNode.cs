@@ -2,15 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace Flow.Compiler.Candidate;
 
-[JsonConverter(typeof(CandidateNodeConverter))]
-public abstract record CandidateNode
-{
-    public required string Id { get; init; }
-
-    protected CandidateNode() { }
-
-    protected CandidateNode(string id) => Id = id;
-}
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(CandidateCallNode), "call")]
+[JsonDerivedType(typeof(CandidateIfNode), "if")]
+[JsonDerivedType(typeof(CandidateFilterNode), "filter")]
+[JsonDerivedType(typeof(CandidateSortNode), "sort")]
+[JsonDerivedType(typeof(CandidateAggregateNode), "aggregate")]
+[JsonDerivedType(typeof(CandidateForeachNode), "foreach")]
+[JsonDerivedType(typeof(CandidateAssertNode), "assert")]
+public abstract record CandidateNode(string Id);
 
 public sealed record CandidateCallNode(
     string Id, string Tool, IReadOnlyDictionary<string, CandidateExpression> Arguments) : CandidateNode(Id);
