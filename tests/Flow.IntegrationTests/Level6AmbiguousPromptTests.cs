@@ -35,6 +35,7 @@ public class Level6AmbiguousPromptTests
         var result = await compiler.CompileAsync(source, tools);
 
         Assert.Equal(CompilationStatus.Uncompilable, result.Status);
+        Assert.NotEmpty(result.Unresolved);
     }
 
     [Fact]
@@ -62,5 +63,6 @@ public class Level6AmbiguousPromptTests
         var result = await compiler.CompileAsync(source, tools);
 
         Assert.Equal(CompilationStatus.Uncompilable, result.Status);
+        Assert.NotEmpty(result.Unresolved);
     }
 }

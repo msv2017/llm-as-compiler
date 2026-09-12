@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Flow.Compiler.Candidate;
 using Flow.Compiler.Tests.Fakes;
 using Flow.Contracts;
@@ -114,5 +115,26 @@ public class RepairLoopTests
         Assert.Equal(1, outcome.AttemptsUsed);
         var received = Assert.Single(model.RepairRequestsReceived);
         Assert.Contains(received.Diagnostics, d => d.Code == "C001" && d.Message.Contains("gt"));
+    }
+
+    private sealed class ThrowingOnRepairModel : ISemanticCompilerModel
+    {
+        public Task<CandidateWorkflowAst> GenerateCandidateAsync(SemanticCompilationRequest request, CancellationToken cancellationToken)
+            => throw new NotSupportedException("not used in this test");
+
+        public Task<CandidateWorkflowAst> RepairCandidateAsync(SemanticRepairRequest request, CancellationToken cancellationToken)
+            => throw new JsonException("truncated repair response");
+    }
+
+    [Fact]
+    public async Task RepairCandidateAsync_ThrowsJsonException_FailsWithC001_InsteadOfPropagating()
+    {
+        var model = new ThrowingOnRepairModel();
+        var loop = new RepairLoop(model, WorkflowValidator.CreateDefault());
+
+        var outcome = await loop.RunAsync(Source(), Catalog(), BrokenCandidate(), CancellationToken.None);
+
+        Assert.False(outcome.Success);
+        Assert.Contains(outcome.Diagnostics, d => d.Code == "C001");
     }
 }

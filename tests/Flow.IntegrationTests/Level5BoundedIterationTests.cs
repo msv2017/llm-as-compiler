@@ -62,7 +62,9 @@ public class Level5BoundedIterationTests
 
         Assert.True(executed.Success);
         var dates = Assert.IsAssignableFrom<System.Collections.IEnumerable>(executed.Output!.Get("renewalDates"))
-            .Cast<object?>().ToList();
+            .Cast<DateTime>().ToList();
         Assert.Equal(2, dates.Count);
+        Assert.Contains(new DateTime(2026, 3, 1), dates);
+        Assert.Contains(new DateTime(2026, 6, 1), dates);
     }
 }

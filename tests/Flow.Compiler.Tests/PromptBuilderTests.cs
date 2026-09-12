@@ -52,4 +52,29 @@ public class PromptBuilderTests
         Assert.Contains("Unknown tool 'crm.doesNotExist'.", user);
         Assert.Contains("customer", user);
     }
+
+    [Fact]
+    public void BuildGeneratePrompt_ExpandsToolOutputObjectTypeFields()
+    {
+        var invoiceType = new Flow.TypeSystem.ObjectType("Invoice", new Dictionary<string, Flow.TypeSystem.FlowType>
+        {
+            ["amount"] = Flow.TypeSystem.PrimitiveType.Decimal,
+            ["status"] = Flow.TypeSystem.PrimitiveType.String
+        });
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new Flow.TypeSystem.ObjectType("In", new Dictionary<string, Flow.TypeSystem.FlowType> { ["customerId"] = Flow.TypeSystem.PrimitiveType.String }),
+                new Flow.TypeSystem.ListType(invoiceType), Flow.Contracts.ToolEffect.Read, Flow.Contracts.ToolRetryPolicy.Safe)
+        });
+        var source = new WorkflowSource(
+            "irrelevant for this test",
+            new Flow.TypeSystem.ObjectType("Request", new Dictionary<string, Flow.TypeSystem.FlowType>()),
+            new Flow.TypeSystem.ObjectType("Result", new Dictionary<string, Flow.TypeSystem.FlowType>()));
+
+        var (_, user) = PromptBuilder.BuildGeneratePrompt(source, tools);
+
+        Assert.Contains("amount", user);
+        Assert.Contains("status", user);
+    }
 }

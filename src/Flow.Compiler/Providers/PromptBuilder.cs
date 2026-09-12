@@ -64,13 +64,15 @@ public static class PromptBuilder
         return (system, user.ToString());
     }
 
-    private static string DescribeType(FlowType type) => type switch
+    private static string DescribeType(FlowType type, int depth = 0) => type switch
     {
-        ObjectType obj => $"{obj.Name} {{ {string.Join(", ", obj.Fields.Select(f => $"{f.Key}: {f.Value.DisplayName}"))} }}",
+        ObjectType obj when depth < 2 =>
+            $"{obj.Name} {{ {string.Join(", ", obj.Fields.Select(f => $"{f.Key}: {DescribeType(f.Value, depth + 1)}"))} }}",
+        ListType list when depth < 2 => $"List<{DescribeType(list.ElementType, depth + 1)}>",
         _ => type.DisplayName
     };
 
     private static string DescribeTool(ToolDefinition tool) =>
         $"- {tool.Name}({string.Join(", ", tool.InputType.Fields.Select(f => $"{f.Key}: {f.Value.DisplayName}"))}) " +
-        $"-> {tool.OutputType.DisplayName} [{tool.Effect}]";
+        $"-> {DescribeType(tool.OutputType)} [{tool.Effect}]";
 }

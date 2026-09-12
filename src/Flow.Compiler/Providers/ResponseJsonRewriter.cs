@@ -46,6 +46,8 @@ public static class ResponseJsonRewriter
         {
             var pairObject = (JsonObject)pair!;
             var name = pairObject["name"]!.GetValue<string>();
+            if (result.ContainsKey(name))
+                throw new JsonException($"Duplicate key '{name}' in dictionary-shaped field.");
             var value = pairObject["value"]?.DeepClone();
             RewriteInPlace(value);
             result[name] = value;

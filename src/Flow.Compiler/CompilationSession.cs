@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Flow.Compiler.Candidate;
 using Flow.Contracts;
 using Flow.Validation;
 
@@ -17,7 +19,19 @@ public sealed class CompilationSession
     public async Task<CompilationResult> CompileAsync(
         WorkflowSource source, ToolCatalog tools, CancellationToken cancellationToken = default)
     {
-        var candidate = await _model.GenerateCandidateAsync(new SemanticCompilationRequest(source, tools), cancellationToken);
+        CandidateWorkflowAst candidate;
+        try
+        {
+            candidate = await _model.GenerateCandidateAsync(new SemanticCompilationRequest(source, tools), cancellationToken);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            return new CompilationResult(
+                CompilationStatus.Uncompilable, null,
+                new[] { new ValidationDiagnostic("C001", $"Model response could not be parsed: {ex.Message}") },
+                Array.Empty<CompilerAssumption>(), Array.Empty<UnresolvedSemantic>());
+        }
+
         var assumptions = candidate.Assumptions.Select(a => new CompilerAssumption(a)).ToList();
 
         if (candidate.Unresolved.Count > 0)

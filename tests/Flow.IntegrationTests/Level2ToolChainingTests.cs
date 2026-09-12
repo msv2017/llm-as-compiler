@@ -16,7 +16,10 @@ public class Level2ToolChainingTests
             object? result = toolName switch
             {
                 "crm.findCustomerByEmail" => new FlowRecord(new Dictionary<string, object?> { ["id"] = "cust-1", ["email"] = "ada@example.com" }),
-                "loyalty.getTier" => new FlowRecord(new Dictionary<string, object?> { ["tier"] = "Gold" }),
+                "loyalty.getTier" when Equals(arguments.GetValueOrDefault("customerId"), "cust-1") =>
+                    new FlowRecord(new Dictionary<string, object?> { ["tier"] = "Gold" }),
+                "loyalty.getTier" => throw new InvalidOperationException(
+                    $"loyalty.getTier called with unexpected customerId '{arguments.GetValueOrDefault("customerId")}'; expected 'cust-1' (the id from crm.findCustomerByEmail)."),
                 _ => throw new InvalidOperationException($"Unexpected tool '{toolName}'.")
             };
             return Task.FromResult<object?>(result);

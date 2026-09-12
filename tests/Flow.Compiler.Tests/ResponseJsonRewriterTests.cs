@@ -92,4 +92,29 @@ public class ResponseJsonRewriterTests
         Assert.Equal(JsonValueKind.Object, returnObject.ValueKind);
         Assert.Empty(returnObject.EnumerateObject());
     }
+
+    [Fact]
+    public void DuplicateKeyInPairsArray_ThrowsJsonException()
+    {
+        var raw = """
+        {
+          "workflow": {
+            "name": "W",
+            "nodes": [
+              {
+                "kind": "call", "id": "customer", "tool": "crm.getCustomerById",
+                "arguments": [
+                  { "name": "id", "value": { "kind": "path", "path": "input.customerId" } },
+                  { "name": "id", "value": { "kind": "path", "path": "input.otherId" } }
+                ]
+              }
+            ],
+            "return": []
+          },
+          "interpretations": [], "assumptions": [], "unresolved": []
+        }
+        """;
+
+        Assert.Throws<JsonException>(() => ResponseJsonRewriter.RewriteDictionaryShapedFields(raw));
+    }
 }

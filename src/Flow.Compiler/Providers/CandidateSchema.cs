@@ -47,7 +47,7 @@ public static class CandidateSchema
         "callNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "call" },
+            "kind": { "type": "string", "enum": ["call"] },
             "id": { "type": "string" },
             "tool": { "type": "string" },
             "arguments": { "type": "array", "items": { "$ref": "#/$defs/namedExpression" } }
@@ -67,7 +67,7 @@ public static class CandidateSchema
         "ifNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "if" },
+            "kind": { "type": "string", "enum": ["if"] },
             "id": { "type": "string" },
             "condition": { "$ref": "#/$defs/expression" },
             "trueBranch": { "$ref": "#/$defs/ifBranch" },
@@ -79,7 +79,7 @@ public static class CandidateSchema
         "filterNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "filter" },
+            "kind": { "type": "string", "enum": ["filter"] },
             "id": { "type": "string" },
             "source": { "$ref": "#/$defs/expression" },
             "parameterName": { "type": "string" },
@@ -91,7 +91,7 @@ public static class CandidateSchema
         "sortNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "sort" },
+            "kind": { "type": "string", "enum": ["sort"] },
             "id": { "type": "string" },
             "source": { "$ref": "#/$defs/expression" },
             "parameterName": { "type": "string" },
@@ -104,7 +104,7 @@ public static class CandidateSchema
         "aggregateNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "aggregate" },
+            "kind": { "type": "string", "enum": ["aggregate"] },
             "id": { "type": "string" },
             "source": { "$ref": "#/$defs/expression" },
             "operation": { "type": "string", "enum": ["Sum", "Count", "First"] },
@@ -117,7 +117,7 @@ public static class CandidateSchema
         "foreachNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "foreach" },
+            "kind": { "type": "string", "enum": ["foreach"] },
             "id": { "type": "string" },
             "source": { "$ref": "#/$defs/expression" },
             "parameterName": { "type": "string" },
@@ -131,7 +131,7 @@ public static class CandidateSchema
         "assertNode": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "assert" },
+            "kind": { "type": "string", "enum": ["assert"] },
             "id": { "type": "string" },
             "condition": { "$ref": "#/$defs/expression" },
             "failureCode": { "type": "string" }
@@ -150,7 +150,7 @@ public static class CandidateSchema
         "pathExpression": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "path" },
+            "kind": { "type": "string", "enum": ["path"] },
             "path": { "type": "string" }
           },
           "required": ["kind", "path"],
@@ -159,8 +159,15 @@ public static class CandidateSchema
         "constantExpression": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "constant" },
-            "value": { "type": ["string", "number", "boolean", "null"] },
+            "kind": { "type": "string", "enum": ["constant"] },
+            "value": {
+              "anyOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" },
+                { "type": "null" }
+              ]
+            },
             "source": { "type": ["string", "null"] },
             "detail": { "type": ["string", "null"] }
           },
@@ -170,7 +177,7 @@ public static class CandidateSchema
         "binaryExpression": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "binary" },
+            "kind": { "type": "string", "enum": ["binary"] },
             "left": { "$ref": "#/$defs/expression" },
             "operator": {
               "type": "string",
@@ -184,7 +191,7 @@ public static class CandidateSchema
         "objectExpression": {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "object" },
+            "kind": { "type": "string", "enum": ["object"] },
             "fields": { "type": "array", "items": { "$ref": "#/$defs/namedExpression" } }
           },
           "required": ["kind", "fields"],

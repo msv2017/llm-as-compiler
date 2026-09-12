@@ -145,4 +145,24 @@ public class CompilationSessionTests
         Assert.Equal("S202", unresolved.Code);
         Assert.Equal("no rule", unresolved.Description);
     }
+
+    private sealed class ThrowingModel : ISemanticCompilerModel
+    {
+        public Task<CandidateWorkflowAst> GenerateCandidateAsync(SemanticCompilationRequest request, CancellationToken cancellationToken)
+            => throw new System.Text.Json.JsonException("truncated response");
+
+        public Task<CandidateWorkflowAst> RepairCandidateAsync(SemanticRepairRequest request, CancellationToken cancellationToken)
+            => throw new NotSupportedException("not used in this test");
+    }
+
+    [Fact]
+    public async Task GenerateCandidateAsync_ThrowsJsonException_ProducesUncompilableWithC001()
+    {
+        var session = new CompilationSession(new ThrowingModel(), WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        Assert.Equal(CompilationStatus.Uncompilable, result.Status);
+        Assert.Contains(result.Diagnostics, d => d.Code == "C001");
+    }
 }

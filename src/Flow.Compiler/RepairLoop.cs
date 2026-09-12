@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Flow.Compiler.Candidate;
 using Flow.Contracts;
 using Flow.IR;
@@ -40,18 +41,20 @@ public sealed class RepairLoop
 
         while (true)
         {
-            WorkflowDefinition? workflow;
-            IReadOnlyList<ValidationDiagnostic> diagnostics;
+            WorkflowDefinition? workflow = null;
+            string? conversionError = null;
             try
             {
                 workflow = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
-                diagnostics = _validator.Validate(workflow, tools);
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {
-                workflow = null;
-                diagnostics = new[] { new ValidationDiagnostic("C001", $"Candidate could not be converted to IR: {ex.Message}") };
+                conversionError = ex.Message;
             }
+
+            IReadOnlyList<ValidationDiagnostic> diagnostics = workflow is not null
+                ? _validator.Validate(workflow, tools)
+                : new[] { new ValidationDiagnostic("C001", $"Candidate could not be converted to IR: {conversionError}") };
 
             if (workflow is not null && diagnostics.Count == 0)
                 return RepairOutcome.Succeeded(workflow, candidate, attempt);
@@ -60,8 +63,16 @@ public sealed class RepairLoop
                 return RepairOutcome.Failed(diagnostics, attempt);
 
             attempt++;
-            candidate = await _model.RepairCandidateAsync(
-                new SemanticRepairRequest(source, tools, candidate, diagnostics), cancellationToken);
+            try
+            {
+                candidate = await _model.RepairCandidateAsync(
+                    new SemanticRepairRequest(source, tools, candidate, diagnostics), cancellationToken);
+            }
+            catch (Exception ex) when (ex is JsonException or NotSupportedException)
+            {
+                return RepairOutcome.Failed(
+                    new[] { new ValidationDiagnostic("C001", $"Repair response could not be parsed: {ex.Message}") }, attempt);
+            }
         }
     }
 }
