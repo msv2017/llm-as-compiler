@@ -23,6 +23,17 @@ public static class CandidateToIrConverter
         CandidateCallNode call => new CallNode(call.Id, call.Tool, ConvertExpressionMap(call.Arguments)),
         CandidateIfNode ifNode => new IfNode(
             ifNode.Id, ConvertExpression(ifNode.Condition), ConvertBranch(ifNode.TrueBranch), ConvertBranch(ifNode.FalseBranch)),
+        CandidateFilterNode filter => new FilterNode(
+            filter.Id, ConvertExpression(filter.Source), filter.ParameterName, ConvertExpression(filter.Predicate)),
+        CandidateSortNode sort => new SortNode(
+            sort.Id, ConvertExpression(sort.Source), sort.ParameterName, ConvertExpression(sort.Key), ParseDirection(sort.Direction)),
+        CandidateAggregateNode aggregate => new AggregateNode(
+            aggregate.Id, ConvertExpression(aggregate.Source), ParseOperation(aggregate.Operation),
+            aggregate.ParameterName, aggregate.Selector is null ? null : ConvertExpression(aggregate.Selector)),
+        CandidateForeachNode foreachNode => new ForeachNode(
+            foreachNode.Id, ConvertExpression(foreachNode.Source), foreachNode.ParameterName, foreachNode.Limit,
+            ConvertNodes(foreachNode.Body), ConvertExpression(foreachNode.BodyValue)),
+        CandidateAssertNode assert => new AssertNode(assert.Id, ConvertExpression(assert.Condition), assert.FailureCode),
         _ => throw new NotSupportedException($"Unsupported candidate node kind '{node.GetType().Name}'.")
     };
 
@@ -45,6 +56,11 @@ public static class CandidateToIrConverter
     };
 
     private static BinaryOperator ParseOperator(string op) => Enum.Parse<BinaryOperator>(op, ignoreCase: true);
+
+    private static SortDirection ParseDirection(string direction) =>
+        direction.Equals("Descending", StringComparison.OrdinalIgnoreCase) ? SortDirection.Descending : SortDirection.Ascending;
+
+    private static AggregateOperation ParseOperation(string operation) => Enum.Parse<AggregateOperation>(operation, ignoreCase: true);
 
     private static ConstantProvenance ParseProvenance(string? source, string? detail) => source?.ToUpperInvariant() switch
     {
