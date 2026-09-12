@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Flow.IR\Flow.IR.csproj" />
+    <ProjectReference Include="..\Flow.TypeSystem\Flow.TypeSystem.csproj" />
+    <ProjectReference Include="..\Flow.Contracts\Flow.Contracts.csproj" />
+    <ProjectReference Include="..\Flow.Validation\Flow.Validation.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
