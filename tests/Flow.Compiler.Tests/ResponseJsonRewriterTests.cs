@@ -90,6 +90,6 @@ public class ResponseJsonRewriterTests
         var returnObject = document.RootElement.GetProperty("workflow").GetProperty("return");
 
         Assert.Equal(JsonValueKind.Object, returnObject.ValueKind);
-        Assert.Equal(0, returnObject.EnumerateObject().Count());
+        Assert.Empty(returnObject.EnumerateObject());
     }
 }
