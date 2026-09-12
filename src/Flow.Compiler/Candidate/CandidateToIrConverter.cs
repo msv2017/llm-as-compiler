@@ -21,8 +21,13 @@ public static class CandidateToIrConverter
     private static WorkflowNode ConvertNode(CandidateNode node) => node switch
     {
         CandidateCallNode call => new CallNode(call.Id, call.Tool, ConvertExpressionMap(call.Arguments)),
+        CandidateIfNode ifNode => new IfNode(
+            ifNode.Id, ConvertExpression(ifNode.Condition), ConvertBranch(ifNode.TrueBranch), ConvertBranch(ifNode.FalseBranch)),
         _ => throw new NotSupportedException($"Unsupported candidate node kind '{node.GetType().Name}'.")
     };
+
+    private static IfBranch ConvertBranch(CandidateIfBranch branch) =>
+        new(ConvertNodes(branch.Nodes), ConvertExpression(branch.Value));
 
     private static IReadOnlyDictionary<string, FlowExpression> ConvertExpressionMap(
         IReadOnlyDictionary<string, CandidateExpression> map) =>
@@ -33,8 +38,13 @@ public static class CandidateToIrConverter
         CandidatePathExpression path => new PathExpression(path.Path),
         CandidateConstantExpression constant => new ConstantExpression(
             NormalizeValue(constant.Value), ParseProvenance(constant.Source, constant.Detail)),
+        CandidateBinaryExpression binary => new BinaryExpression(
+            ConvertExpression(binary.Left), ParseOperator(binary.Operator), ConvertExpression(binary.Right)),
+        CandidateObjectExpression obj => new ObjectExpression(ConvertExpressionMap(obj.Fields)),
         _ => throw new NotSupportedException($"Unsupported candidate expression kind '{expression.GetType().Name}'.")
     };
+
+    private static BinaryOperator ParseOperator(string op) => Enum.Parse<BinaryOperator>(op, ignoreCase: true);
 
     private static ConstantProvenance ParseProvenance(string? source, string? detail) => source?.ToUpperInvariant() switch
     {
