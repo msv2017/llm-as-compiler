@@ -12,6 +12,14 @@ public sealed class OpenAiSemanticCompilerModel : ISemanticCompilerModel
         _client = client;
     }
 
+    public static OpenAiSemanticCompilerModel FromEnvironment(string model = "gpt-4.1-mini")
+    {
+        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
+        return new OpenAiSemanticCompilerModel(new OpenAiChatCompletionClient(apiKey, model));
+    }
+
     public async Task<CandidateWorkflowAst> GenerateCandidateAsync(
         SemanticCompilationRequest request, CancellationToken cancellationToken)
     {
