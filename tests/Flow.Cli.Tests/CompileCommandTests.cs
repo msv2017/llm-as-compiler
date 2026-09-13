@@ -2,7 +2,7 @@ using Flow.Cli;
 
 namespace Flow.Cli.Tests;
 
-public class CliRunnerTests
+public class CompileCommandTests
 {
     [Fact]
     public async Task NoArguments_PrintsUsage_ReturnsExitCode2()
@@ -10,7 +10,7 @@ public class CliRunnerTests
         var stdout = new StringWriter();
         var stderr = new StringWriter();
 
-        var exitCode = await CliRunner.RunAsync(Array.Empty<string>(), stdout, stderr);
+        var exitCode = await CompileCommand.RunAsync(Array.Empty<string>(), stdout, stderr);
 
         Assert.Equal(2, exitCode);
         Assert.Contains("Usage:", stderr.ToString());
@@ -22,7 +22,7 @@ public class CliRunnerTests
         var stdout = new StringWriter();
         var stderr = new StringWriter();
 
-        var exitCode = await CliRunner.RunAsync(new[] { "a.json", "b.json" }, stdout, stderr);
+        var exitCode = await CompileCommand.RunAsync(new[] { "a.json", "b.json" }, stdout, stderr);
 
         Assert.Equal(2, exitCode);
         Assert.Contains("Usage:", stderr.ToString());
@@ -35,7 +35,7 @@ public class CliRunnerTests
         var stderr = new StringWriter();
         var missingPath = Path.Combine(Path.GetTempPath(), $"flow-cli-does-not-exist-{Guid.NewGuid():N}.json");
 
-        var exitCode = await CliRunner.RunAsync(new[] { missingPath }, stdout, stderr);
+        var exitCode = await CompileCommand.RunAsync(new[] { missingPath }, stdout, stderr);
 
         Assert.Equal(2, exitCode);
         Assert.Contains(missingPath, stderr.ToString());
@@ -51,7 +51,7 @@ public class CliRunnerTests
         {
             await File.WriteAllTextAsync(path, "{ not valid json");
 
-            var exitCode = await CliRunner.RunAsync(new[] { path }, stdout, stderr);
+            var exitCode = await CompileCommand.RunAsync(new[] { path }, stdout, stderr);
 
             Assert.Equal(2, exitCode);
             Assert.Contains("Invalid scenario file", stderr.ToString());
@@ -76,7 +76,7 @@ public class CliRunnerTests
             {
                 await File.WriteAllTextAsync(path, ValidScenarioJson);
 
-                var exitCode = await CliRunner.RunAsync(new[] { path }, stdout, stderr);
+                var exitCode = await CompileCommand.RunAsync(new[] { path }, stdout, stderr);
 
                 Assert.Equal(2, exitCode);
                 Assert.Contains("OPENAI_API_KEY", stderr.ToString());
@@ -106,7 +106,7 @@ public class CliRunnerTests
             {
                 await File.WriteAllTextAsync(path, ValidScenarioJson);
 
-                var exitCode = await CliRunner.RunAsync(new[] { path, "--provider", "anthropic" }, stdout, stderr);
+                var exitCode = await CompileCommand.RunAsync(new[] { path, "--provider", "anthropic" }, stdout, stderr);
 
                 Assert.Equal(2, exitCode);
                 Assert.Contains("ANTHROPIC_API_KEY", stderr.ToString());
@@ -136,7 +136,7 @@ public class CliRunnerTests
             {
                 await File.WriteAllTextAsync(path, ValidScenarioJson);
 
-                var exitCode = await CliRunner.RunAsync(new[] { "--provider", "anthropic", path }, stdout, stderr);
+                var exitCode = await CompileCommand.RunAsync(new[] { "--provider", "anthropic", path }, stdout, stderr);
 
                 Assert.Equal(2, exitCode);
                 Assert.Contains("ANTHROPIC_API_KEY", stderr.ToString());
@@ -162,7 +162,7 @@ public class CliRunnerTests
         {
             await File.WriteAllTextAsync(path, ValidScenarioJson);
 
-            var exitCode = await CliRunner.RunAsync(new[] { path, "--provider", "bogus" }, stdout, stderr);
+            var exitCode = await CompileCommand.RunAsync(new[] { path, "--provider", "bogus" }, stdout, stderr);
 
             Assert.Equal(2, exitCode);
             Assert.Contains("bogus", stderr.ToString());
@@ -179,7 +179,7 @@ public class CliRunnerTests
         var stdout = new StringWriter();
         var stderr = new StringWriter();
 
-        var exitCode = await CliRunner.RunAsync(new[] { "scenario.json", "--provider" }, stdout, stderr);
+        var exitCode = await CompileCommand.RunAsync(new[] { "scenario.json", "--provider" }, stdout, stderr);
 
         Assert.Equal(2, exitCode);
         Assert.Contains("Usage:", stderr.ToString());

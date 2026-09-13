@@ -1,1 +1,1 @@
-return await Flow.Cli.CliRunner.RunAsync(args, Console.Out, Console.Error);
+return await Flow.Cli.CliDispatcher.RunAsync(args, Console.Out, Console.Error);

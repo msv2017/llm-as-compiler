@@ -3,9 +3,9 @@ using Flow.Compiler.Providers;
 
 namespace Flow.Cli;
 
-public static class CliRunner
+public static class CompileCommand
 {
-    private const string Usage = "Usage: flow-cli <scenario.json> [--provider openai|anthropic]";
+    private const string Usage = "Usage: flow-cli compile <scenario.json> [--provider openai|anthropic]";
 
     public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr)
     {
