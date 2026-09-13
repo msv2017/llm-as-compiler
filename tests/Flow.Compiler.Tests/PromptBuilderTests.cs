@@ -47,6 +47,44 @@ public class PromptBuilderTests
     }
 
     [Fact]
+    public void BuildGeneratePrompt_SystemPromptWarnsAboutAggregateFirstNullability()
+    {
+        // Diagnosed live against the real Level 4 ("refund the oldest invoice") failure: the model
+        // consistently produced an unguarded "oldestInvoice.id" access after AggregateNode(First),
+        // tripping NullabilityValidator's T103 -- and only an IfNode's own bare "!= null"/"== null"
+        // condition narrows nullability (AssertNode does not), so the guidance must say exactly that.
+        var (system, _) = PromptBuilder.BuildGeneratePrompt(Source(), Catalog());
+
+        Assert.Contains("!= null", system);
+        Assert.Contains("assert", system.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void BuildGeneratePrompt_SystemPromptWarnsAgainstDotValueNodeReference()
+    {
+        // Diagnosed live against the real Level 4 failure: the model referenced an if-node's result
+        // as "refundDecision.value" (T104, unresolvable) instead of the bare node id "refundDecision".
+        var (system, _) = PromptBuilder.BuildGeneratePrompt(Source(), Catalog());
+
+        Assert.Contains(".value", system);
+    }
+
+    [Fact]
+    public void BuildGeneratePrompt_SystemPromptClarifiesLiteralComparisonIsNotAmbiguity()
+    {
+        // Diagnosed live: Claude flagged comparing a status field against a literal value stated in
+        // the prompt (e.g. "keep only UNPAID invoices") as "unresolved" (undocumented enum values),
+        // where GPT treated the identical instruction as a normal PROMPT-sourced constant comparison
+        // and recorded it as an assumption instead. The rule already requires a "source" on every
+        // constant -- this just makes explicit that satisfying it is not itself grounds for
+        // "unresolved" when the prompt states the exact value to compare against.
+        var (system, _) = PromptBuilder.BuildGeneratePrompt(Source(), Catalog());
+
+        Assert.Contains("unresolved", system.ToLowerInvariant());
+        Assert.Contains("literal value", system);
+    }
+
+    [Fact]
     public void BuildRepairPrompt_IncludesPriorCandidateAndDiagnostics()
     {
         var priorCandidate = new CandidateWorkflowAst(
