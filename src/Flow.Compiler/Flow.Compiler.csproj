@@ -8,6 +8,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.47.0" />
     <PackageReference Include="OpenAI" Version="2.10.0" />
   </ItemGroup>
 

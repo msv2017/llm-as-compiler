@@ -2,21 +2,21 @@ using Flow.Compiler.Candidate;
 
 namespace Flow.Compiler.Providers;
 
-public sealed class OpenAiSemanticCompilerModel : ISemanticCompilerModel
+public sealed class AnthropicSemanticCompilerModel : ISemanticCompilerModel
 {
     private readonly GenericSemanticCompilerModel _inner;
 
-    public OpenAiSemanticCompilerModel(IChatCompletionClient client)
+    public AnthropicSemanticCompilerModel(IChatCompletionClient client)
     {
         _inner = new GenericSemanticCompilerModel(client);
     }
 
-    public static OpenAiSemanticCompilerModel FromEnvironment(string model = "gpt-4.1-mini")
+    public static AnthropicSemanticCompilerModel FromEnvironment(string model = "claude-haiku-4-5")
     {
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
-            throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
-        return new OpenAiSemanticCompilerModel(new OpenAiChatCompletionClient(apiKey, model));
+            throw new InvalidOperationException("ANTHROPIC_API_KEY environment variable is not set.");
+        return new AnthropicSemanticCompilerModel(new AnthropicChatCompletionClient(apiKey, model));
     }
 
     public Task<CandidateWorkflowAst> GenerateCandidateAsync(
