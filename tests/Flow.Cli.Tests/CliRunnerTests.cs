@@ -1,0 +1,101 @@
+using Flow.Cli;
+
+namespace Flow.Cli.Tests;
+
+public class CliRunnerTests
+{
+    [Fact]
+    public async Task NoArguments_PrintsUsage_ReturnsExitCode2()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+
+        var exitCode = await CliRunner.RunAsync(Array.Empty<string>(), stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains("Usage:", stderr.ToString());
+    }
+
+    [Fact]
+    public async Task TooManyArguments_PrintsUsage_ReturnsExitCode2()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+
+        var exitCode = await CliRunner.RunAsync(new[] { "a.json", "b.json" }, stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains("Usage:", stderr.ToString());
+    }
+
+    [Fact]
+    public async Task ScenarioFileDoesNotExist_ReturnsExitCode2_WithFilePathInError()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var missingPath = Path.Combine(Path.GetTempPath(), $"flow-cli-does-not-exist-{Guid.NewGuid():N}.json");
+
+        var exitCode = await CliRunner.RunAsync(new[] { missingPath }, stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains(missingPath, stderr.ToString());
+    }
+
+    [Fact]
+    public async Task MalformedScenarioJson_ReturnsExitCode2_WithParseError()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var path = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(path, "{ not valid json");
+
+            var exitCode = await CliRunner.RunAsync(new[] { path }, stdout, stderr);
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("Invalid scenario file", stderr.ToString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ValidScenarioButNoApiKey_ReturnsExitCode2_WithClearError()
+    {
+        var previousKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        Environment.SetEnvironmentVariable("OPENAI_API_KEY", null);
+        try
+        {
+            var stdout = new StringWriter();
+            var stderr = new StringWriter();
+            var path = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllTextAsync(path, """
+                {
+                  "prompt": "p",
+                  "inputType": { "kind": "primitive", "name": "String" },
+                  "outputType": { "kind": "primitive", "name": "String" },
+                  "tools": []
+                }
+                """);
+
+                var exitCode = await CliRunner.RunAsync(new[] { path }, stdout, stderr);
+
+                Assert.Equal(2, exitCode);
+                Assert.Contains("OPENAI_API_KEY", stderr.ToString());
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("OPENAI_API_KEY", previousKey);
+        }
+    }
+}
