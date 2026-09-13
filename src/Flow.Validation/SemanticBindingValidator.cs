@@ -50,12 +50,98 @@ public sealed class SemanticBindingValidator : IWorkflowValidationPass
                     CheckNodes(ifNode.FalseBranch.Nodes, inputType, tools, new Dictionary<string, FlowType>(nodeOutputTypes), diagnostics);
                     break;
 
-                case ForeachNode foreachNode:
-                    CheckNodes(foreachNode.Body, inputType, tools, new Dictionary<string, FlowType>(nodeOutputTypes), diagnostics);
+                case FilterNode filterNode:
+                {
+                    var sourceType = ResolveType(filterNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                        nodeOutputTypes[filterNode.Id] = listType;
                     break;
+                }
+
+                case SortNode sortNode:
+                {
+                    var sourceType = ResolveType(sortNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                        nodeOutputTypes[sortNode.Id] = listType;
+                    break;
+                }
+
+                case AggregateNode aggregateNode:
+                {
+                    var sourceType = ResolveType(aggregateNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType listType)
+                    {
+                        nodeOutputTypes[aggregateNode.Id] = aggregateNode.Operation switch
+                        {
+                            AggregateOperation.Count => PrimitiveType.Int,
+                            AggregateOperation.First => new OptionalType(listType.ElementType),
+                            AggregateOperation.Sum => PrimitiveType.Decimal,
+                            _ => listType.ElementType
+                        };
+                    }
+                    break;
+                }
+
+                case ForeachNode foreachNode:
+                {
+                    var scoped = new Dictionary<string, FlowType>(nodeOutputTypes);
+                    var sourceType = ResolveType(foreachNode.Source, inputType, nodeOutputTypes);
+                    if (sourceType is ListType sourceListType)
+                        scoped[foreachNode.ParameterName] = sourceListType.ElementType;
+
+                    CheckNodes(foreachNode.Body, inputType, tools, scoped, diagnostics);
+
+                    if (sourceType is ListType)
+                    {
+                        var bodyValueType = ResolveType(foreachNode.BodyValue, inputType, scoped);
+                        if (bodyValueType is not null)
+                            nodeOutputTypes[foreachNode.Id] = new ListType(bodyValueType);
+                    }
+                    break;
+                }
             }
         }
     }
+
+    private static FlowType? ResolveType(
+        FlowExpression expression, FlowType inputType, IReadOnlyDictionary<string, FlowType> nodeOutputTypes) => expression switch
+    {
+        ConstantExpression constant => InferConstantType(constant.Value),
+        PathExpression path => PathTypeResolver.Resolve(path.Path, inputType, nodeOutputTypes, out _),
+        BinaryExpression binary => IsComparisonOrBoolean(binary.Operator) ? PrimitiveType.Bool : null,
+        ObjectExpression obj => ResolveObjectType(obj, inputType, nodeOutputTypes),
+        _ => null
+    };
+
+    private static FlowType? ResolveObjectType(
+        ObjectExpression obj, FlowType inputType, IReadOnlyDictionary<string, FlowType> nodeOutputTypes)
+    {
+        var fields = new Dictionary<string, FlowType>();
+        foreach (var (fieldName, fieldExpression) in obj.Fields)
+        {
+            var fieldType = ResolveType(fieldExpression, inputType, nodeOutputTypes);
+            if (fieldType is null)
+                return null;
+            fields[fieldName] = fieldType;
+        }
+        return new ObjectType("Anonymous", fields);
+    }
+
+    private static bool IsComparisonOrBoolean(BinaryOperator op) => op is
+        BinaryOperator.Equal or BinaryOperator.NotEqual or
+        BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual or
+        BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual or
+        BinaryOperator.And or BinaryOperator.Or;
+
+    private static FlowType? InferConstantType(object? value) => value switch
+    {
+        null => PrimitiveType.Null,
+        bool => PrimitiveType.Bool,
+        int or long => PrimitiveType.Int,
+        double or decimal => PrimitiveType.Decimal,
+        string => PrimitiveType.String,
+        _ => null
+    };
 
     private static void CheckBinding(
         string ownerNodeId, string argumentName, PathExpression path, FlowType expectedType, FlowType inputType,

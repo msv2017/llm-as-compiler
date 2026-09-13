@@ -101,11 +101,12 @@ public class SemanticBindingValidatorTests
     [Fact]
     public void BindingWrongSemanticTag_ThroughFilterNodeOutput_IsNotDetected()
     {
-        // KNOWN SCOPE LIMIT: SemanticBindingValidator only tracks CallNode outputs (see CheckNodes in
-        // SemanticBindingValidator.cs). A binding sourced from a FilterNode/SortNode/AggregateNode output
-        // can't be resolved, so the check is silently skipped here -- not silently passed, but there is
-        // no diagnostic either way. This mirrors ToolResolutionValidator's existing recursion scope in
-        // this codebase. Extending coverage to collection nodes is tracked as follow-up work, not a bug.
+        // FilterNode's output type IS tracked (see CheckNodes in SemanticBindingValidator.cs), but a
+        // path can never select a field directly off a list root -- PathTypeResolver requires an
+        // ObjectType/OptionalType to walk further segments, and Filter/Sort output stays a ListType.
+        // This test documents that this malformed shape still produces no diagnostic (silently
+        // skipped, not silently passed) rather than a crash. Extracting a scalar from a filtered/sorted
+        // list requires AggregateNode(First) first -- see the ThroughFilterThenAggregateFirstOutput test.
         var customerType = new ObjectType("Customer", new Dictionary<string, FlowType>
         {
             ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
@@ -136,5 +137,161 @@ public class SemanticBindingValidatorTests
         var diagnostics = new SemanticBindingValidator().Validate(workflow, tools);
 
         Assert.Empty(diagnostics); // documents the gap -- update this test if the scope is ever extended
+    }
+
+    [Fact]
+    public void BindingWrongSemanticTag_ThroughAggregateFirstOutput_ProducesS201()
+    {
+        var customerType = new ObjectType("Customer", new Dictionary<string, FlowType>
+        {
+            ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
+            ["email"] = new SemanticType("Email", PrimitiveType.String)
+        });
+        var listCustomers = new CallNode("customers", "crm.listCustomers", new Dictionary<string, FlowExpression>());
+        var firstCustomer = new AggregateNode("firstCustomer", new PathExpression("customers"), AggregateOperation.First, null, null);
+        var refund = new CallNode("refund", "billing.createRefund",
+            new Dictionary<string, FlowExpression> { ["customerId"] = new PathExpression("firstCustomer.email") }); // WRONG: Email where CustomerId expected
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["refundId"] = new PathExpression("refund.id") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["refundId"] = PrimitiveType.String });
+        var workflow = new WorkflowDefinition(
+            "W", inputType, outputType, new WorkflowNode[] { listCustomers, firstCustomer, refund }, returnNode);
+
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("crm.listCustomers",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(customerType), ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("billing.createRefund",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["customerId"] = new SemanticType("CustomerId", PrimitiveType.String) }),
+                new ObjectType("Refund", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String }),
+                ToolEffect.Write, ToolRetryPolicy.Never)
+        });
+
+        var diagnostics = new SemanticBindingValidator().Validate(workflow, tools);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("S201", diagnostic.Code);
+        Assert.Equal("refund", diagnostic.NodeId);
+        Assert.Contains("firstCustomer.id", diagnostic.Message);
+    }
+
+    [Fact]
+    public void BindingWrongSemanticTag_ThroughFilterThenAggregateFirstOutput_ProducesS201()
+    {
+        var customerType = new ObjectType("Customer", new Dictionary<string, FlowType>
+        {
+            ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
+            ["email"] = new SemanticType("Email", PrimitiveType.String)
+        });
+        var listCustomers = new CallNode("customers", "crm.listCustomers", new Dictionary<string, FlowExpression>());
+        var filtered = new FilterNode("filtered", new PathExpression("customers"), "c",
+            new BinaryExpression(new PathExpression("c.id"), BinaryOperator.NotEqual,
+                new ConstantExpression(null, new ConstantProvenance(ConstantProvenanceKind.HandWritten))));
+        var firstFiltered = new AggregateNode("firstFiltered", new PathExpression("filtered"), AggregateOperation.First, null, null);
+        var refund = new CallNode("refund", "billing.createRefund",
+            new Dictionary<string, FlowExpression> { ["customerId"] = new PathExpression("firstFiltered.email") }); // WRONG
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["refundId"] = new PathExpression("refund.id") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["refundId"] = PrimitiveType.String });
+        var workflow = new WorkflowDefinition(
+            "W", inputType, outputType, new WorkflowNode[] { listCustomers, filtered, firstFiltered, refund }, returnNode);
+
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("crm.listCustomers",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(customerType), ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("billing.createRefund",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["customerId"] = new SemanticType("CustomerId", PrimitiveType.String) }),
+                new ObjectType("Refund", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String }),
+                ToolEffect.Write, ToolRetryPolicy.Never)
+        });
+
+        var diagnostics = new SemanticBindingValidator().Validate(workflow, tools);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("S201", diagnostic.Code);
+        Assert.Equal("refund", diagnostic.NodeId);
+    }
+
+    [Fact]
+    public void BindingWrongSemanticTag_ThroughSortThenAggregateFirstOutput_ProducesS201()
+    {
+        var customerType = new ObjectType("Customer", new Dictionary<string, FlowType>
+        {
+            ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
+            ["email"] = new SemanticType("Email", PrimitiveType.String)
+        });
+        var listCustomers = new CallNode("customers", "crm.listCustomers", new Dictionary<string, FlowExpression>());
+        var sorted = new SortNode("sorted", new PathExpression("customers"), "c", new PathExpression("c.email"), SortDirection.Ascending);
+        var firstSorted = new AggregateNode("firstSorted", new PathExpression("sorted"), AggregateOperation.First, null, null);
+        var refund = new CallNode("refund", "billing.createRefund",
+            new Dictionary<string, FlowExpression> { ["customerId"] = new PathExpression("firstSorted.email") }); // WRONG
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["refundId"] = new PathExpression("refund.id") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["refundId"] = PrimitiveType.String });
+        var workflow = new WorkflowDefinition(
+            "W", inputType, outputType, new WorkflowNode[] { listCustomers, sorted, firstSorted, refund }, returnNode);
+
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("crm.listCustomers",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(customerType), ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("billing.createRefund",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["customerId"] = new SemanticType("CustomerId", PrimitiveType.String) }),
+                new ObjectType("Refund", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String }),
+                ToolEffect.Write, ToolRetryPolicy.Never)
+        });
+
+        var diagnostics = new SemanticBindingValidator().Validate(workflow, tools);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("S201", diagnostic.Code);
+        Assert.Equal("refund", diagnostic.NodeId);
+    }
+
+    [Fact]
+    public void BindingWrongSemanticTag_ThroughForeachThenAggregateFirstOutput_ProducesS201()
+    {
+        var customerType = new ObjectType("Customer", new Dictionary<string, FlowType>
+        {
+            ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
+            ["email"] = new SemanticType("Email", PrimitiveType.String)
+        });
+        var listCustomers = new CallNode("customers", "crm.listCustomers", new Dictionary<string, FlowExpression>());
+        var lookup = new CallNode("found", "crm.findCustomer",
+            new Dictionary<string, FlowExpression> { ["email"] = new PathExpression("c.email") });
+        var loop = new ForeachNode("looked", new PathExpression("customers"), "c", 100,
+            new WorkflowNode[] { lookup }, new PathExpression("found"));
+        var firstLooked = new AggregateNode("firstLooked", new PathExpression("looked"), AggregateOperation.First, null, null);
+        var refund = new CallNode("refund", "billing.createRefund",
+            new Dictionary<string, FlowExpression> { ["customerId"] = new PathExpression("firstLooked.email") }); // WRONG
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["refundId"] = new PathExpression("refund.id") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["refundId"] = PrimitiveType.String });
+        var workflow = new WorkflowDefinition(
+            "W", inputType, outputType, new WorkflowNode[] { listCustomers, loop, firstLooked, refund }, returnNode);
+
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("crm.listCustomers",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(customerType), ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("crm.findCustomer",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["email"] = new SemanticType("Email", PrimitiveType.String) }),
+                customerType, ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("billing.createRefund",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["customerId"] = new SemanticType("CustomerId", PrimitiveType.String) }),
+                new ObjectType("Refund", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String }),
+                ToolEffect.Write, ToolRetryPolicy.Never)
+        });
+
+        var diagnostics = new SemanticBindingValidator().Validate(workflow, tools);
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("S201", diagnostic.Code);
+        Assert.Equal("refund", diagnostic.NodeId);
     }
 }
