@@ -99,7 +99,7 @@ exercise anything.
 types, and the tool catalog — and prints the result. It does not execute the compiled workflow.
 
 ```bash
-dotnet run --project src/Flow.Cli -- scenario.json [--provider openai|anthropic]
+dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|anthropic]
 ```
 
 `--provider` defaults to `openai`. Exit codes: `0` compiled successfully, `1` compiled to
@@ -151,6 +151,23 @@ Workflow:
   call getCustomer = crm.getCustomerById(id: input.customerId)
   return { customerName: getCustomer.name }
 ```
+
+### Scaffolding a scenario from a live MCP server
+
+Hand-authoring the `tools` array is the tedious part of a scenario file. `scaffold` discovers a
+real MCP server's tools (over Streamable HTTP) and writes a complete scenario file for you —
+except `inputType`/`outputType`, which describe your workflow's contract, not any tool's, so
+nothing can discover them:
+
+```bash
+dotnet run --project src/Flow.Cli -- scaffold out.json --mcp-url https://your-mcp-server/mcp --prompt "Your prompt here"
+```
+
+It prints a "needs manual review" list of everything it couldn't determine: `inputType`/
+`outputType` (always), each tool's `effect`/`retry` (MCP doesn't carry this — every tool defaults
+to `Unknown`/`Never`), and any per-field schema shape it couldn't convert (`oneOf`/`anyOf`/`$ref`,
+or a missing output schema) — those fields get a `String` or empty-object placeholder instead of a
+silent guess.
 
 ## Providers
 
