@@ -74,14 +74,7 @@ public class CliRunnerTests
             var path = Path.GetTempFileName();
             try
             {
-                await File.WriteAllTextAsync(path, """
-                {
-                  "prompt": "p",
-                  "inputType": { "kind": "primitive", "name": "String" },
-                  "outputType": { "kind": "primitive", "name": "String" },
-                  "tools": []
-                }
-                """);
+                await File.WriteAllTextAsync(path, ValidScenarioJson);
 
                 var exitCode = await CliRunner.RunAsync(new[] { path }, stdout, stderr);
 
@@ -98,4 +91,106 @@ public class CliRunnerTests
             Environment.SetEnvironmentVariable("OPENAI_API_KEY", previousKey);
         }
     }
+
+    [Fact]
+    public async Task ProviderAnthropicFlag_ButNoApiKey_ReturnsExitCode2_WithClearError()
+    {
+        var previousKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+        try
+        {
+            var stdout = new StringWriter();
+            var stderr = new StringWriter();
+            var path = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllTextAsync(path, ValidScenarioJson);
+
+                var exitCode = await CliRunner.RunAsync(new[] { path, "--provider", "anthropic" }, stdout, stderr);
+
+                Assert.Equal(2, exitCode);
+                Assert.Contains("ANTHROPIC_API_KEY", stderr.ToString());
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", previousKey);
+        }
+    }
+
+    [Fact]
+    public async Task ProviderFlagBeforePath_IsAlsoAccepted()
+    {
+        var previousKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+        try
+        {
+            var stdout = new StringWriter();
+            var stderr = new StringWriter();
+            var path = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllTextAsync(path, ValidScenarioJson);
+
+                var exitCode = await CliRunner.RunAsync(new[] { "--provider", "anthropic", path }, stdout, stderr);
+
+                Assert.Equal(2, exitCode);
+                Assert.Contains("ANTHROPIC_API_KEY", stderr.ToString());
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", previousKey);
+        }
+    }
+
+    [Fact]
+    public async Task UnknownProvider_ReturnsExitCode2_NamingTheBadValue()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var path = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(path, ValidScenarioJson);
+
+            var exitCode = await CliRunner.RunAsync(new[] { path, "--provider", "bogus" }, stdout, stderr);
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("bogus", stderr.ToString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ProviderFlagMissingValue_PrintsUsage_ReturnsExitCode2()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+
+        var exitCode = await CliRunner.RunAsync(new[] { "scenario.json", "--provider" }, stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains("Usage:", stderr.ToString());
+    }
+
+    private const string ValidScenarioJson = """
+    {
+      "prompt": "p",
+      "inputType": { "kind": "primitive", "name": "String" },
+      "outputType": { "kind": "primitive", "name": "String" },
+      "tools": []
+    }
+    """;
 }

@@ -5,15 +5,41 @@ namespace Flow.Cli;
 
 public static class CliRunner
 {
+    private const string Usage = "Usage: flow-cli <scenario.json> [--provider openai|anthropic]";
+
     public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr)
     {
-        if (args.Length != 1)
+        string? path = null;
+        string provider = "openai";
+
+        for (var i = 0; i < args.Length; i++)
         {
-            stderr.WriteLine("Usage: flow-cli <scenario.json>");
+            if (args[i] == "--provider")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    stderr.WriteLine(Usage);
+                    return 2;
+                }
+                provider = args[++i];
+            }
+            else if (path is null)
+            {
+                path = args[i];
+            }
+            else
+            {
+                stderr.WriteLine(Usage);
+                return 2;
+            }
+        }
+
+        if (path is null)
+        {
+            stderr.WriteLine(Usage);
             return 2;
         }
 
-        var path = args[0];
         string json;
         try
         {
@@ -37,10 +63,15 @@ public static class CliRunner
             return 2;
         }
 
-        OpenAiSemanticCompilerModel model;
+        ISemanticCompilerModel model;
         try
         {
-            model = OpenAiSemanticCompilerModel.FromEnvironment();
+            model = provider.ToLowerInvariant() switch
+            {
+                "openai" => OpenAiSemanticCompilerModel.FromEnvironment(),
+                "anthropic" => AnthropicSemanticCompilerModel.FromEnvironment(),
+                _ => throw new InvalidOperationException($"Unknown provider '{provider}'. Expected 'openai' or 'anthropic'.")
+            };
         }
         catch (InvalidOperationException ex)
         {
