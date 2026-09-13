@@ -7,12 +7,11 @@ using Xunit;
 
 namespace Flow.IntegrationTests;
 
-// Not yet live-verified against the real Anthropic API (no ANTHROPIC_API_KEY was available when
-// this was written -- see docs/superpowers/specs/2026-09-13-anthropic-provider-design.md). This
-// exists so that a future session with a real key can run it immediately, the same way
-// Level1StraightLineLookupTests.cs did for the OpenAI provider's first live run -- which found two
-// real bugs (DataflowValidator, T104) that no amount of scripted-fake testing caught.
-public class AnthropicProviderTests
+// Mirrors Level1StraightLineLookupTests.cs (OpenAI). Live-verified 2026-09-13: found a real bug on
+// first run (Anthropic's structured-output schema validator rejects CandidateSchema.Json's
+// recursive $refs) -- see AnthropicChatCompletionClient.cs and
+// docs/superpowers/specs/2026-09-13-anthropic-provider-design.md.
+public class AnthropicLevel1StraightLineLookupTests
 {
     private sealed class FakeInvoker : IMcpInvoker
     {
