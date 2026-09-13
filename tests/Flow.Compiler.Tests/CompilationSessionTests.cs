@@ -22,7 +22,7 @@ public class CompilationSessionTests
         new ObjectType("Request", new Dictionary<string, FlowType> { ["customerId"] = PrimitiveType.String }),
         new ObjectType("Result", new Dictionary<string, FlowType> { ["customerName"] = PrimitiveType.String }));
 
-    private static CandidateWorkflowAst ValidCandidate(IReadOnlyList<string>? assumptions = null) => new(
+    private static CandidateWorkflowAst ValidCandidate(IReadOnlyList<string>? assumptions = null, IReadOnlyList<string>? interpretations = null) => new(
         new CandidateWorkflowBody(
             "FindCustomerName",
             new CandidateNode[]
@@ -31,7 +31,7 @@ public class CompilationSessionTests
                     new Dictionary<string, CandidateExpression> { ["id"] = new CandidatePathExpression("input.customerId") })
             },
             new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") }),
-        Array.Empty<string>(), assumptions ?? Array.Empty<string>(), Array.Empty<string>());
+        interpretations ?? Array.Empty<string>(), assumptions ?? Array.Empty<string>(), Array.Empty<string>());
 
     private static CandidateWorkflowAst UnresolvedCandidate() => new(
         new CandidateWorkflowBody("Unresolvable", Array.Empty<CandidateNode>(), new Dictionary<string, CandidateExpression>()),
@@ -51,6 +51,44 @@ public class CompilationSessionTests
         Assert.Empty(result.Diagnostics);
         Assert.Single(result.Assumptions);
         Assert.Equal("assumed 'name' means customer.name", result.Assumptions[0].Description);
+    }
+
+    [Fact]
+    public async Task ValidCandidate_CompilesSuccessfully_AndCarriesInterpretations()
+    {
+        var model = new ScriptedSemanticCompilerModel(ValidCandidate(interpretations: new[] { "interpreted 'the customer' as input.customerId" }));
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        Assert.Equal(CompilationStatus.Success, result.Status);
+        Assert.Single(result.Interpretations);
+        Assert.Equal("interpreted 'the customer' as input.customerId", result.Interpretations[0]);
+    }
+
+    [Fact]
+    public async Task RepairSucceeds_ReportsFinalCandidateInterpretations_NotFirstCandidateInterpretations()
+    {
+        var firstCandidate = new CandidateWorkflowAst(
+            new CandidateWorkflowBody(
+                "FindCustomerName",
+                new CandidateNode[]
+                {
+                    new CandidateCallNode("customer", "crm.doesNotExist",
+                        new Dictionary<string, CandidateExpression> { ["id"] = new CandidatePathExpression("input.customerId") })
+                },
+                new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") }),
+            new[] { "first-candidate-interpretation" }, Array.Empty<string>(), Array.Empty<string>());
+        var secondCandidate = ValidCandidate(interpretations: new[] { "second-candidate-interpretation" });
+
+        var model = new ScriptedSemanticCompilerModel(firstCandidate, secondCandidate);
+        var session = new CompilationSession(model, WorkflowValidator.CreateDefault());
+
+        var result = await session.CompileAsync(Source(), Catalog(), CancellationToken.None);
+
+        Assert.Equal(CompilationStatus.Success, result.Status);
+        Assert.Contains(result.Interpretations, i => i == "second-candidate-interpretation");
+        Assert.DoesNotContain(result.Interpretations, i => i == "first-candidate-interpretation");
     }
 
     [Fact]

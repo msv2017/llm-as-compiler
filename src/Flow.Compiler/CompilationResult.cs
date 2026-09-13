@@ -14,4 +14,5 @@ public sealed record CompilationResult(
     WorkflowDefinition? Workflow,
     IReadOnlyList<ValidationDiagnostic> Diagnostics,
     IReadOnlyList<CompilerAssumption> Assumptions,
-    IReadOnlyList<UnresolvedSemantic> Unresolved);
+    IReadOnlyList<UnresolvedSemantic> Unresolved,
+    IReadOnlyList<string> Interpretations);

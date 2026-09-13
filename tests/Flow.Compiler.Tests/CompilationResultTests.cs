@@ -23,7 +23,8 @@ public class CompilationResultTests
             Workflow: null,
             Diagnostics: new[] { new ValidationDiagnostic("T101", "mismatch") },
             Assumptions: new[] { new CompilerAssumption("assumed X means Y") },
-            Unresolved: new[] { new UnresolvedSemantic("S202", "no deterministic rule") });
+            Unresolved: new[] { new UnresolvedSemantic("S202", "no deterministic rule") },
+            Interpretations: new[] { "interpreted 'oldest' as earliest createdAt" });
 
         Assert.Equal(CompilationStatus.Uncompilable, result.Status);
         Assert.Null(result.Workflow);
@@ -31,5 +32,7 @@ public class CompilationResultTests
         Assert.Single(result.Assumptions);
         Assert.Single(result.Unresolved);
         Assert.Equal("S202", result.Unresolved[0].Code);
+        Assert.Single(result.Interpretations);
+        Assert.Equal("interpreted 'oldest' as earliest createdAt", result.Interpretations[0]);
     }
 }

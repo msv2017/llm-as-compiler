@@ -29,7 +29,7 @@ public sealed class CompilationSession
             return new CompilationResult(
                 CompilationStatus.Uncompilable, null,
                 new[] { new ValidationDiagnostic("C001", $"Model response could not be parsed: {ex.Message}") },
-                Array.Empty<CompilerAssumption>(), Array.Empty<UnresolvedSemantic>());
+                Array.Empty<CompilerAssumption>(), Array.Empty<UnresolvedSemantic>(), Array.Empty<string>());
         }
 
         var assumptions = candidate.Assumptions.Select(a => new CompilerAssumption(a)).ToList();
@@ -38,20 +38,22 @@ public sealed class CompilationSession
         {
             var unresolved = candidate.Unresolved.Select(ParseUnresolved).ToList();
             return new CompilationResult(
-                CompilationStatus.Uncompilable, null, Array.Empty<ValidationDiagnostic>(), assumptions, unresolved);
+                CompilationStatus.Uncompilable, null, Array.Empty<ValidationDiagnostic>(), assumptions, unresolved, candidate.Interpretations);
         }
 
         var outcome = await _repairLoop.RunAsync(source, tools, candidate, cancellationToken);
 
         if (outcome.Success)
         {
-            var finalAssumptions = outcome.FinalCandidate!.Assumptions.Select(a => new CompilerAssumption(a)).ToList();
+            var finalCandidate = outcome.FinalCandidate!;
+            var finalAssumptions = finalCandidate.Assumptions.Select(a => new CompilerAssumption(a)).ToList();
             return new CompilationResult(
-                CompilationStatus.Success, outcome.Workflow, Array.Empty<ValidationDiagnostic>(), finalAssumptions, Array.Empty<UnresolvedSemantic>());
+                CompilationStatus.Success, outcome.Workflow, Array.Empty<ValidationDiagnostic>(), finalAssumptions, Array.Empty<UnresolvedSemantic>(),
+                finalCandidate.Interpretations);
         }
 
         return new CompilationResult(
-            CompilationStatus.Uncompilable, null, outcome.Diagnostics, assumptions, Array.Empty<UnresolvedSemantic>());
+            CompilationStatus.Uncompilable, null, outcome.Diagnostics, assumptions, Array.Empty<UnresolvedSemantic>(), candidate.Interpretations);
     }
 
     private static UnresolvedSemantic ParseUnresolved(string entry)
