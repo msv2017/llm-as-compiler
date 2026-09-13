@@ -179,7 +179,25 @@ public sealed class TypeValidator : IWorkflowValidationPass
     {
         var actualType = ResolveType(expression, inputType, nodeOutputTypes);
         if (actualType is null)
-            return; // unresolved — reported by DataflowValidator, or a node kind this Phase 1 resolver doesn't cover yet
+        {
+            // DataflowValidator (D301) only checks that a path's ROOT is defined; it does not check
+            // whether later segments can actually navigate the root's type (e.g. indexing into a list,
+            // which this IR has no path syntax for -- the correct construct is an aggregate/foreach node).
+            // A known root whose full path still doesn't resolve is exactly that case -- flag it here,
+            // since nothing else in the validation pipeline does, and PathTypeResolver's own consumers
+            // (this method, NullabilityValidator, SemanticBindingValidator) previously just skipped it
+            // silently, letting the workflow reach WorkflowExecutor and crash at runtime instead.
+            if (expression is PathExpression path && IsPathRootKnown(path.Path, nodeOutputTypes))
+            {
+                diagnostics.Add(new ValidationDiagnostic(
+                    "T104",
+                    $"Path '{path.Path}' cannot be resolved past its root: a later segment does not name a " +
+                    "field on the preceding value's type (list indexing via path syntax is not supported -- " +
+                    "use an aggregate node with operation 'First', or a foreach node, instead).",
+                    ownerNodeId));
+            }
+            return; // otherwise unresolved — reported by DataflowValidator, or a node kind this Phase 1 resolver doesn't cover yet
+        }
 
         if (!TypeCompatibility.IsAssignable(expectedType, actualType))
         {
@@ -188,6 +206,12 @@ public sealed class TypeValidator : IWorkflowValidationPass
                 $"Expected {expectedType.DisplayName} but expression produces {actualType.DisplayName}.",
                 ownerNodeId));
         }
+    }
+
+    private static bool IsPathRootKnown(string path, IReadOnlyDictionary<string, FlowType> nodeOutputTypes)
+    {
+        var root = path.Split('.')[0];
+        return root == "input" || nodeOutputTypes.ContainsKey(root);
     }
 
     private static FlowType? ResolveType(

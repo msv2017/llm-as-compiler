@@ -73,4 +73,38 @@ public class TypeValidatorTests
         var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["name"] = PrimitiveType.String });
         return new WorkflowDefinition("Test", inputType, outputType, new WorkflowNode[] { call }, returnNode);
     }
+
+    [Fact]
+    public void NumericPathSegmentIndexingIntoList_WithKnownRoot_ProducesT104()
+    {
+        // A real model generated exactly this shape ("sortedList.0.id") to mean "the first item" --
+        // this IR has no list-indexing path syntax (the correct construct is an aggregate node with
+        // operation "First"). The root ("sorted") is a perfectly valid, known prior node, so
+        // DataflowValidator's D301 (undefined root) never fires; this must be caught here instead.
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String });
+        var listInvoices = new CallNode("invoices", "billing.listInvoices", new Dictionary<string, FlowExpression>());
+        var sorted = new SortNode("sorted", new PathExpression("invoices"), "x", new PathExpression("x.id"), SortDirection.Ascending);
+        var refund = new CallNode("refund", "billing.createRefund",
+            new Dictionary<string, FlowExpression> { ["invoiceId"] = new PathExpression("sorted.0.id") });
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["refundId"] = new PathExpression("refund.id") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["refundId"] = PrimitiveType.String });
+        var workflow = new WorkflowDefinition(
+            "Test", inputType, outputType, new WorkflowNode[] { listInvoices, sorted, refund }, returnNode);
+
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(invoiceType), ToolEffect.Read, ToolRetryPolicy.Safe),
+            new ToolDefinition("billing.createRefund",
+                new ObjectType("In", new Dictionary<string, FlowType> { ["invoiceId"] = PrimitiveType.String }),
+                new ObjectType("Refund", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String }),
+                ToolEffect.Write, ToolRetryPolicy.Never)
+        });
+
+        var diagnostics = new TypeValidator().Validate(workflow, tools);
+
+        Assert.Contains(diagnostics, d => d.Code == "T104" && d.NodeId == "refund");
+    }
 }

@@ -23,6 +23,14 @@ public static class PromptBuilder
           instead of guessing.
         - Record any non-obvious interpretation you made in "assumptions".
         - Only use tools and fields that appear in the catalog and type descriptions below.
+        - Path syntax: a field on the workflow's input MUST be written as "input.fieldName" -- never as a
+          bare "fieldName". A field on a prior node's result is written as "nodeId.fieldName". For example,
+          if the input type has a field "customerId", refer to it as "input.customerId", and if a call node
+          with id "customer" produces a field "name", refer to it as "customer.name".
+        - Paths never index into a list by position -- there is no "someList.0.field" syntax. To get a
+          single item from a list (e.g. "the first" or "the oldest"), use an aggregate node with operation
+          "First" (its result is that single item, then access its fields normally, e.g. "oldestInvoice.id").
+          To act on every item, use a foreach node.
         """;
 
     public static (string System, string User) BuildGeneratePrompt(WorkflowSource source, ToolCatalog tools)

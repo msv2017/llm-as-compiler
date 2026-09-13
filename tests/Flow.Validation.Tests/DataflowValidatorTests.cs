@@ -36,6 +36,22 @@ public class DataflowValidatorTests
     }
 
     [Fact]
+    public void BareInputFieldNameWithoutInputPrefix_ProducesD301()
+    {
+        // "email" alone (missing the "input." prefix) is not a valid root anywhere else in the system --
+        // PathTypeResolver/WorkflowExecutionContext only ever recognize "input" itself as the special root,
+        // fields off it must be "input.fieldName". This must be caught here, since TypeValidator explicitly
+        // defers "is this path even defined" to DataflowValidator for paths it can't resolve.
+        var call = new CallNode("customer", "crm.findCustomer",
+            new Dictionary<string, FlowExpression> { ["email"] = new PathExpression("email") });
+        var workflow = WorkflowWith(call, "customer.id");
+
+        var diagnostics = new DataflowValidator().Validate(workflow, EmptyCatalog);
+
+        Assert.Contains(diagnostics, d => d.Code == "D301");
+    }
+
+    [Fact]
     public void ValidPathsToInputAndPriorNode_ProduceNoDiagnostics()
     {
         var call = new CallNode("customer", "crm.findCustomer",

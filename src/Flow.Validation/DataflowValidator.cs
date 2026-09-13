@@ -2,7 +2,6 @@ using Flow.Contracts;
 using Flow.IR;
 using Flow.IR.Expressions;
 using Flow.IR.Nodes;
-using Flow.TypeSystem;
 
 namespace Flow.Validation;
 
@@ -13,15 +12,12 @@ public sealed class DataflowValidator : IWorkflowValidationPass
     public IReadOnlyList<ValidationDiagnostic> Validate(WorkflowDefinition workflow, ToolCatalog tools)
     {
         var diagnostics = new List<ValidationDiagnostic>();
+        // "input" is the only valid bare root -- fields off it must be referenced as "input.fieldName",
+        // matching PathTypeResolver/WorkflowExecutionContext's actual resolution semantics. Do not also
+        // seed bare input field names here: that previously let a malformed path like "customerId" (missing
+        // the "input." prefix) pass validation and crash at runtime, since nothing else in the system
+        // resolves a bare field name against the input type.
         var definedBefore = new HashSet<string> { "input" };
-
-        if (workflow.InputType is ObjectType inputType)
-        {
-            foreach (var fieldName in inputType.Fields.Keys)
-            {
-                definedBefore.Add(fieldName);
-            }
-        }
 
         ValidateNodes(workflow.Nodes, definedBefore, diagnostics);
         CheckExpression(workflow.Return.Id, CombineReturnFields(workflow), definedBefore, diagnostics);

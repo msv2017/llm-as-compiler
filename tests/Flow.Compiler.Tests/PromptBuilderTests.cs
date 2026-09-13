@@ -37,6 +37,16 @@ public class PromptBuilderTests
     }
 
     [Fact]
+    public void BuildGeneratePrompt_SystemPromptWarnsAgainstListIndexPathSyntax()
+    {
+        var (system, _) = PromptBuilder.BuildGeneratePrompt(Source(), Catalog());
+
+        Assert.Contains("input.fieldName", system);
+        Assert.Contains("someList.0.field", system);
+        Assert.Contains("\"First\"", system);
+    }
+
+    [Fact]
     public void BuildRepairPrompt_IncludesPriorCandidateAndDiagnostics()
     {
         var priorCandidate = new CandidateWorkflowAst(
