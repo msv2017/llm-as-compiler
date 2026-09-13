@@ -1,4 +1,8 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Flow.Cli;
+using Flow.Cli.Scaffold;
+using Flow.Contracts;
 
 namespace Flow.Cli.Tests;
 
@@ -81,5 +85,55 @@ public class ScaffoldCommandTests
         Assert.Equal(2, exitCode);
         Assert.Contains("localhost:1", stderr.ToString());
         Assert.False(File.Exists(outputPath));
+    }
+
+    [Fact]
+    public void ToToolJson_ThenScenarioJsonParse_RoundTripsWithoutThrowing()
+    {
+        var inputSchema = JsonDocument.Parse("""
+        {
+          "type": "object",
+          "properties": { "message": { "type": "string" } },
+          "required": ["message"]
+        }
+        """).RootElement;
+        var tool = new DiscoveredTool("echo", "Echoes the message back", inputSchema, null);
+        var warnings = new List<string>();
+
+        var toolJson = ScaffoldCommand.ToToolJson(tool, warnings);
+
+        var scenario = new ScenarioFileJson
+        {
+            Prompt = "Echo the message.",
+            InputType = new FlowTypeJson
+            {
+                Kind = "object",
+                Name = "Request",
+                Fields = new Dictionary<string, FlowTypeJson> { ["message"] = new() { Kind = "primitive", Name = "String" } }
+            },
+            OutputType = new FlowTypeJson
+            {
+                Kind = "object",
+                Name = "Result",
+                Fields = new Dictionary<string, FlowTypeJson> { ["reply"] = new() { Kind = "primitive", Name = "String" } }
+            },
+            Tools = new List<ToolJson> { toolJson }
+        };
+
+        var json = JsonSerializer.Serialize(scenario, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        });
+
+        Assert.DoesNotContain(": null", json);
+
+        var (source, catalog) = ScenarioJson.Parse(json);
+
+        Assert.Equal("Echo the message.", source.Prompt);
+        Assert.True(catalog.TryGet("echo", out var parsedTool));
+        Assert.Equal(ToolEffect.Unknown, parsedTool!.Effect);
+        Assert.Equal(ToolRetryPolicy.Never, parsedTool.Retry);
     }
 }

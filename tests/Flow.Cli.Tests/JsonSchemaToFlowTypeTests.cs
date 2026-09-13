@@ -172,4 +172,36 @@ public class JsonSchemaToFlowTypeTests
         Assert.Equal("String", result.ElementType!.Name);
         Assert.Single(warnings);
     }
+
+    [Fact]
+    public void EnumWithNonStringValue_FallsBackToPlainStringPrimitive_AndRecordsWarning()
+    {
+        var schema = Parse("""{ "type": "string", "enum": ["Open", 1] }""");
+        var warnings = new List<string>();
+
+        var result = JsonSchemaToFlowType.Convert(schema, "Status", warnings, "status");
+
+        Assert.Equal("primitive", result.Kind);
+        Assert.Equal("String", result.Name);
+        Assert.Single(warnings);
+    }
+
+    [Fact]
+    public void RequiredArrayWithNonStringEntry_IgnoresIt_AndRecordsWarning()
+    {
+        var schema = Parse("""
+        {
+          "type": "object",
+          "properties": { "id": { "type": "string" } },
+          "required": ["id", 5]
+        }
+        """);
+        var warnings = new List<string>();
+
+        var result = JsonSchemaToFlowType.Convert(schema, "Thing", warnings, "thing");
+
+        Assert.Equal("object", result.Kind);
+        Assert.Equal("primitive", result.Fields!["id"].Kind); // still required, unaffected by the bad entry
+        Assert.Single(warnings);
+    }
 }

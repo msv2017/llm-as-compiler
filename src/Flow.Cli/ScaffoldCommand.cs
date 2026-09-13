@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Flow.Cli.Scaffold;
 
 namespace Flow.Cli;
@@ -10,7 +11,8 @@ public static class ScaffoldCommand
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr)
@@ -79,7 +81,15 @@ public static class ScaffoldCommand
             Tools = tools
         };
 
-        await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(scenario, WriteOptions));
+        try
+        {
+            await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(scenario, WriteOptions));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            stderr.WriteLine($"Could not write '{outputPath}': {ex.Message}");
+            return 2;
+        }
 
         stdout.WriteLine($"Wrote {outputPath} with {tools.Count} tool(s) discovered from {mcpUrl}:");
         foreach (var tool in discovered)
@@ -95,7 +105,7 @@ public static class ScaffoldCommand
         return 0;
     }
 
-    private static ToolJson ToToolJson(DiscoveredTool tool, List<string> warnings)
+    internal static ToolJson ToToolJson(DiscoveredTool tool, List<string> warnings)
     {
         var inputType = JsonSchemaToFlowType.Convert(tool.InputSchema, "In", warnings, $"{tool.Name}.inputSchema");
         if (inputType.Kind != "object")
