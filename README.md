@@ -1,20 +1,54 @@
 # Flow Compiler
 
-Flow Compiler turns a natural-language automation prompt plus a catalog of MCP tool contracts into
-a small, deterministic, typed workflow — compiled once by an LLM, then executed forever without
-calling one again.
+Ask an LLM-based agent to do the same task twice and you can get two different answers. Same
+prompt, same tools — but the model re-reasons the whole thing from scratch every run. That's fine
+when the task is genuinely novel each time. It's wasteful when it isn't.
+
+A lot of what gets called "AI automation" is actually the same handful of workflows running over
+and over: look up a customer, sum some invoices, decide whether to refund. Once a workflow's
+meaning is established, there's no reason to keep paying a model to re-derive it.
+
+Flow Compiler works from that idea. Use a model once, at compile time, to turn a prompt and a
+catalog of MCP tools into a small, typed, deterministic workflow. After that, a plain .NET executor
+runs it — no further LLM calls, same behavior every time. When a prompt doesn't actually reduce to
+something deterministic, compilation fails instead of guessing.
 
 > **Use AI to formalize the workflow once; use ordinary software to execute it forever.**
 
-A prompt like *"Find the customer by email, retrieve their unpaid invoices, sum the outstanding
-amount, and return a summary"* has fundamentally deterministic behavior once its intent is known.
-Continuing to invoke an LLM on every execution just to re-derive that same behavior is unnecessary,
-non-deterministic, slow, expensive, and hard to audit. Flow Compiler compiles it once into an
-intermediate representation (IR) that a plain .NET executor can run indefinitely with zero
-runtime LLM calls — and it is explicitly allowed to **fail to compile** rather than silently invent
-business logic the prompt didn't actually specify.
+## Contents
 
-Full rationale and IR spec: [`ai_deterministic_workflow_compiler_design.md`](ai_deterministic_workflow_compiler_design.md).
+- [Example](#example)
+- [How it works](#how-it-works)
+- [Project layout](#project-layout)
+- [Getting started](#getting-started)
+- [Using Flow.Cli](#using-flowcli)
+- [Providers](#providers)
+- [Known limitations](#known-limitations)
+- [License](#license)
+
+## Example
+
+Prompt in:
+
+> *"Given a customer id, look up and return the customer's name."*
+
+Compiled workflow out:
+
+```
+$ dotnet run --project src/Flow.Cli -- compile scenario.json
+
+Status: Success
+
+Assumptions:
+  - The tool crm.getCustomerById returns a Customer entity with a 'name' field representing the customer's name.
+
+Workflow:
+  call getCustomer = crm.getCustomerById(id: input.customerId)
+  return { customerName: getCustomer.name }
+```
+
+One LLM call produced that. Run it again tomorrow and it's the same workflow — no further LLM calls
+involved. Scenario-file format and full CLI usage below, under [Using Flow.Cli](#using-flowcli).
 
 ## How it works
 
@@ -95,10 +129,12 @@ exercise anything.
 
 ## Using Flow.Cli
 
-`Flow.Cli` has two subcommands: `compile` turns a JSON **scenario file** — a prompt, its
-input/output types, and the tool catalog — into a workflow and prints the result (it does not
-execute the compiled workflow); `scaffold` discovers a live MCP server's tools and writes most of
-that scenario file for you (see below).
+`Flow.Cli` has two subcommands:
+
+- `compile` turns a JSON **scenario file** — a prompt, its input/output types, and the tool catalog
+  — into a workflow and prints the result. It does not execute the compiled workflow.
+- `scaffold` discovers a live MCP server's tools and writes most of that scenario file for you (see
+  below).
 
 ```bash
 dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|anthropic]
@@ -108,7 +144,7 @@ dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|an
 `Uncompilable` (the compiler correctly rejected the prompt), `2` a usage/setup problem (bad
 arguments, missing file, malformed scenario JSON, missing API key).
 
-Example scenario file:
+Example scenario file — the one behind the [Example](#example) output above:
 
 ```json
 {
@@ -135,24 +171,17 @@ Example scenario file:
 }
 ```
 
-A type is one of six `kind`s: `primitive` (`name`: `Null`/`Bool`/`Int`/`Decimal`/`String`/`Date`/
-`DateTime`/`Duration`), `object` (`name` + `fields`), `list` (`elementType`), `optional`
-(`innerType`), `semantic` (`name` + `underlying`), or `enum` (`name` + `values`). `effect` is one of
-`Pure`/`Read`/`Write`/`Delete`/`External`/`Unknown`; `retry` is one of `Never`/`Safe`/`Idempotent`/
-`IdempotentWithKey`.
+A type is one of six `kind`s:
 
-Sample output on success:
+- `primitive` (`name`: `Null`/`Bool`/`Int`/`Decimal`/`String`/`Date`/`DateTime`/`Duration`)
+- `object` (`name` + `fields`)
+- `list` (`elementType`)
+- `optional` (`innerType`)
+- `semantic` (`name` + `underlying`)
+- `enum` (`name` + `values`)
 
-```
-Status: Success
-
-Assumptions:
-  - The tool crm.getCustomerById returns a Customer entity with a 'name' field representing the customer's name.
-
-Workflow:
-  call getCustomer = crm.getCustomerById(id: input.customerId)
-  return { customerName: getCustomer.name }
-```
+`effect` is one of `Pure`/`Read`/`Write`/`Delete`/`External`/`Unknown`; `retry` is one of
+`Never`/`Safe`/`Idempotent`/`IdempotentWithKey`.
 
 ### Scaffolding a scenario from a live MCP server
 
@@ -165,11 +194,12 @@ nothing can discover them:
 dotnet run --project src/Flow.Cli -- scaffold out.json --mcp-url https://your-mcp-server/mcp --prompt "Your prompt here"
 ```
 
-It prints a "needs manual review" list of everything it couldn't determine: `inputType`/
-`outputType` (always), each tool's `effect`/`retry` (MCP doesn't carry this — every tool defaults
-to `Unknown`/`Never`), and any per-field schema shape it couldn't convert (`oneOf`/`anyOf`/`$ref`,
-or a missing output schema) — those fields get a `String` or empty-object placeholder instead of a
-silent guess.
+It prints a "needs manual review" list of everything it couldn't determine:
+
+- `inputType`/`outputType` (always — these describe your workflow, not any tool)
+- each tool's `effect`/`retry` (MCP doesn't carry this, so every tool defaults to `Unknown`/`Never`)
+- any per-field schema shape it couldn't convert (`oneOf`/`anyOf`/`$ref`, or a missing output
+  schema) — those fields get a `String` or empty-object placeholder instead of a silent guess
 
 ## Providers
 
@@ -182,12 +212,17 @@ generate/repair/parse logic (`GenericSemanticCompilerModel`):
 | `AnthropicSemanticCompilerModel` | `ANTHROPIC_API_KEY` | `claude-haiku-4-5` | Not enforced — Anthropic's structured-output schema validator rejects the IR schema's recursive `$ref`s (expressions/nodes containing themselves), so the schema is described as text in the prompt instead, relying on the repair loop for malformed responses |
 
 Both are exercised end-to-end against the real APIs by `tests/Flow.IntegrationTests` (skipped
-without a key). Compilation success is inherently probabilistic for an LLM-based compiler bounded
-by a fixed number of repair attempts — the same prompt can occasionally compile on one run and hit
-`Uncompilable` on another, particularly for prompts requiring multi-step reasoning (filter + sort +
-aggregate + a null-safety guard, all in the right shape at once).
+without a key).
+
+Compilation success is inherently probabilistic for an LLM-based compiler bounded by a fixed number
+of repair attempts — the same prompt can occasionally compile on one run and hit `Uncompilable` on
+another, particularly for prompts requiring multi-step reasoning (filter + sort + aggregate + a
+null-safety guard, all in the right shape at once).
 
 ## Known limitations
+
+This project's own rule is to say what it doesn't know rather than guess — the same rule applies
+here, to itself:
 
 - **Compilation is not 100% reliable for harder prompts.** "Refund the oldest unpaid invoice"
   (filter → sort → aggregate-first → null-guard → conditional write) passes most of the time on
@@ -212,12 +247,6 @@ aggregate + a null-safety guard, all in the right shape at once).
   which `compile` then rejects outright — the one schema shape `scaffold` doesn't yet degrade
   gracefully for, unlike every other unsupported shape (which gets a placeholder plus a warning
   instead of a hard failure downstream).
-
-## Further reading
-
-- [`ai_deterministic_workflow_compiler_design.md`](ai_deterministic_workflow_compiler_design.md) — the full design document (IR spec, type system, DSL principles, non-goals)
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) — design specs for each major increment
-- [`docs/superpowers/plans/`](docs/superpowers/plans/) — implementation plans
 
 ## License
 
