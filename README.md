@@ -218,3 +218,7 @@ aggregate + a null-safety guard, all in the right shape at once).
 - [`ai_deterministic_workflow_compiler_design.md`](ai_deterministic_workflow_compiler_design.md) — the full design document (IR spec, type system, DSL principles, non-goals)
 - [`docs/superpowers/specs/`](docs/superpowers/specs/) — design specs for each major increment
 - [`docs/superpowers/plans/`](docs/superpowers/plans/) — implementation plans
+
+## License
+
+[MIT](LICENSE)
