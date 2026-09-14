@@ -69,7 +69,7 @@ rather than executing something nobody actually asked for.
 | `src/Flow.Analysis` | Static analysis over compiled IR — which tools a workflow calls (`CapabilityAnalyzer`) and its read/write/delete/external effect surface (`EffectAnalyzer`) |
 | `src/Flow.Runtime` | `WorkflowExecutor` — runs a validated `WorkflowDefinition` against an `IMcpInvoker`, no LLM involved |
 | `src/Flow.Compiler` | The compiler itself: candidate generation/repair loop, prompt building, and the two model providers (`Providers/OpenAi*`, `Providers/Anthropic*`) |
-| `src/Flow.Cli` | A small console app to compile a prompt from a JSON scenario file and print the result |
+| `src/Flow.Cli` | Console app with two subcommands: `compile` (a JSON scenario file → workflow) and `scaffold` (discover a live MCP server's tools into a scenario file's `tools` array) |
 | `tests/*.Tests` | Deterministic unit tests (scripted-fake model responses; no network) |
 | `tests/Flow.IntegrationTests` | Live tests against the real OpenAI/Anthropic APIs, skipped automatically when the relevant API key isn't set |
 
@@ -79,7 +79,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~190 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~215 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -95,8 +95,10 @@ exercise anything.
 
 ## Using Flow.Cli
 
-`Flow.Cli` compiles a single prompt from a JSON **scenario file** — a prompt, its input/output
-types, and the tool catalog — and prints the result. It does not execute the compiled workflow.
+`Flow.Cli` has two subcommands: `compile` turns a JSON **scenario file** — a prompt, its
+input/output types, and the tool catalog — into a workflow and prints the result (it does not
+execute the compiled workflow); `scaffold` discovers a live MCP server's tools and writes most of
+that scenario file for you (see below).
 
 ```bash
 dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|anthropic]
@@ -190,8 +192,9 @@ aggregate + a null-safety guard, all in the right shape at once).
 - **Compilation is not 100% reliable for harder prompts.** "Refund the oldest unpaid invoice"
   (filter → sort → aggregate-first → null-guard → conditional write) passes most of the time on
   both providers but has been observed to fail occasionally within the default 3 repair attempts.
-- **`Flow.Cli` is compile-only** — it does not execute the resulting workflow against real or
-  mocked tools.
+- **`Flow.Cli` never executes a workflow** — `compile` only compiles and prints; `scaffold` only
+  discovers tools and writes a file. Running a compiled workflow against real tools isn't wired
+  into the CLI at all.
 - **Anthropic responses aren't schema-enforced**, only prompted for — see the Providers table above.
 - **`SemanticBindingValidator`** can only check a binding sourced from a `Filter`/`Sort` node's list
   output once it's been reduced to a scalar via `AggregateNode(First)` — a path can never select a
@@ -199,6 +202,16 @@ aggregate + a null-safety guard, all in the right shape at once).
 - **`CandidateWorkflowAst.Interpretations`** is surfaced on `CompilationResult` but currently only
   ever populated when the model chooses to record one; there's no requirement that it explain every
   non-trivial choice.
+- **`scaffold` has no auth support** — it can only talk to an MCP server that needs no credentials;
+  there's no flag yet for headers or tokens.
+- **`scaffold` has no request timeout** — a slow or wedged MCP endpoint hangs the CLI indefinitely
+  (Ctrl+C is the only way out).
+- **`scaffold` echoes the MCP URL verbatim** in its output and in any connection-failure message —
+  credentials embedded in the URL (`https://user:token@host/mcp`) will appear in your terminal/logs.
+- **A tool whose JSON Schema has an empty `enum: []`** converts to an enum type with no values,
+  which `compile` then rejects outright — the one schema shape `scaffold` doesn't yet degrade
+  gracefully for, unlike every other unsupported shape (which gets a placeholder plus a warning
+  instead of a hard failure downstream).
 
 ## Further reading
 
