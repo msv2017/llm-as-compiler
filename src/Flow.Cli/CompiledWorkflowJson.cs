@@ -41,7 +41,7 @@ public static class CompiledWorkflowJson
         {
             file = JsonSerializer.Deserialize<CompiledWorkflowFileJson>(json, Options);
         }
-        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        catch (Exception ex)
         {
             throw new ScenarioParseException($"Compiled workflow file is not valid JSON: {ex.Message}");
         }
@@ -61,7 +61,7 @@ public static class CompiledWorkflowJson
         {
             return CandidateToIrConverter.Convert(file.Workflow, inputType, outputType);
         }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        catch (Exception ex)
         {
             throw new ScenarioParseException($"Compiled workflow file has an invalid workflow: {ex.Message}");
         }

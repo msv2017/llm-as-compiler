@@ -84,6 +84,59 @@ public class CompiledWorkflowJsonTests
     }
 
     [Fact]
+    public void Parse_SortNodeMissingDirection_ThrowsScenarioParseException()
+    {
+        var json = """
+        {
+          "inputType": { "kind": "primitive", "name": "String" },
+          "outputType": { "kind": "primitive", "name": "String" },
+          "workflow": {
+            "name": "MissingDirection",
+            "nodes": [
+              {
+                "kind": "sort",
+                "id": "sorted",
+                "source": { "kind": "path", "path": "input" },
+                "parameterName": "item",
+                "key": { "kind": "path", "path": "item" }
+              }
+            ],
+            "return": { "value": { "kind": "path", "path": "sorted" } }
+          }
+        }
+        """;
+
+        var ex = Assert.Throws<ScenarioParseException>(() => CompiledWorkflowJson.Parse(json));
+        Assert.Contains("invalid workflow", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_FilterNodeMissingPredicate_ThrowsScenarioParseException()
+    {
+        var json = """
+        {
+          "inputType": { "kind": "primitive", "name": "String" },
+          "outputType": { "kind": "primitive", "name": "String" },
+          "workflow": {
+            "name": "MissingPredicate",
+            "nodes": [
+              {
+                "kind": "filter",
+                "id": "filtered",
+                "source": { "kind": "path", "path": "input" },
+                "parameterName": "item"
+              }
+            ],
+            "return": { "value": { "kind": "path", "path": "filtered" } }
+          }
+        }
+        """;
+
+        var ex = Assert.Throws<ScenarioParseException>(() => CompiledWorkflowJson.Parse(json));
+        Assert.Contains("invalid workflow", ex.Message);
+    }
+
+    [Fact]
     public void Write_ThenParse_RoundTripsFilterSortAggregateAssertAndForeachNodes()
     {
         var filter = new FilterNode("openInvoices", new PathExpression("input.invoices"), "invoice",

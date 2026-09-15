@@ -79,7 +79,7 @@ public static class RunCommand
             using var document = JsonDocument.Parse(rawInputJson);
             input = FlowJsonBridge.ToFlowValue(document.RootElement);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        catch (Exception ex)
         {
             stderr.WriteLine($"Could not read input: {ex.Message}");
             return 2;
