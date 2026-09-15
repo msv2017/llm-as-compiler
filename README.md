@@ -103,7 +103,7 @@ rather than executing something nobody actually asked for.
 | `src/Flow.Analysis` | Static analysis over compiled IR — which tools a workflow calls (`CapabilityAnalyzer`) and its read/write/delete/external effect surface (`EffectAnalyzer`) |
 | `src/Flow.Runtime` | `WorkflowExecutor` — runs a validated `WorkflowDefinition` against an `IMcpInvoker`, no LLM involved |
 | `src/Flow.Compiler` | The compiler itself: candidate generation/repair loop, prompt building, and the two model providers (`Providers/OpenAi*`, `Providers/Anthropic*`) |
-| `src/Flow.Cli` | Console app with two subcommands: `compile` (a JSON scenario file → workflow) and `scaffold` (discover a live MCP server's tools into a scenario file's `tools` array) |
+| `src/Flow.Cli` | Console app with three subcommands: `compile` (a JSON scenario file → workflow, optionally saved to a file), `run` (a saved workflow → executed against a live MCP server), and `scaffold` (discover a live MCP server's tools into a scenario file's `tools` array) |
 | `tests/*.Tests` | Deterministic unit tests (scripted-fake model responses; no network) |
 | `tests/Flow.IntegrationTests` | Live tests against the real OpenAI/Anthropic APIs, skipped automatically when the relevant API key isn't set |
 
@@ -129,10 +129,13 @@ exercise anything.
 
 ## Using Flow.Cli
 
-`Flow.Cli` has two subcommands:
+`Flow.Cli` has three subcommands:
 
 - `compile` turns a JSON **scenario file** — a prompt, its input/output types, and the tool catalog
-  — into a workflow and prints the result. It does not execute the compiled workflow.
+  — into a workflow and prints the result. Add `--save <path>` to also persist the compiled
+  workflow to a file `run` can load later.
+- `run` loads a workflow file previously written by `compile --save` and executes it against a
+  live MCP server — no LLM calls, no scenario file needed at this stage.
 - `scaffold` discovers a live MCP server's tools and writes most of that scenario file for you (see
   below).
 
@@ -143,6 +146,12 @@ dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|an
 `--provider` defaults to `openai`. Exit codes: `0` compiled successfully, `1` compiled to
 `Uncompilable` (the compiler correctly rejected the prompt), `2` a usage/setup problem (bad
 arguments, missing file, malformed scenario JSON, missing API key).
+
+```bash
+dotnet run --project src/Flow.Cli -- run workflow.json --mcp-url http://localhost:3001/mcp --input-json '{"customerId":"c1"}'
+# or, reading the input from a file instead:
+dotnet run --project src/Flow.Cli -- run workflow.json --mcp-url http://localhost:3001/mcp --input input.json
+```
 
 Example scenario file — the one behind the [Example](#example) output above:
 
@@ -227,9 +236,14 @@ here, to itself:
 - **Compilation is not 100% reliable for harder prompts.** "Refund the oldest unpaid invoice"
   (filter → sort → aggregate-first → null-guard → conditional write) passes most of the time on
   both providers but has been observed to fail occasionally within the default 3 repair attempts.
-- **`Flow.Cli` never executes a workflow** — `compile` only compiles and prints; `scaffold` only
-  discovers tools and writes a file. Running a compiled workflow against real tools isn't wired
-  into the CLI at all.
+- **`run` requires structured MCP tool output.** A tool that only returns unstructured text content
+  (no `structuredContent` in its `CallToolResult`) can't be used by a compiled workflow — Flow
+  Runtime has no way to interpret free text as a typed value.
+- **`run` has the same no-auth/no-timeout gap on its MCP connection that `scaffold` already has**
+  (see below).
+- **`run` never re-validates.** Validation happens once, at `compile` time. If a compiled workflow
+  file is hand-edited into something invalid, `run` has no validator pass to catch it — it will
+  simply fail at execution time in whatever way the invalid IR causes.
 - **Anthropic responses aren't schema-enforced**, only prompted for — see the Providers table above.
 - **`SemanticBindingValidator`** can only check a binding sourced from a `Filter`/`Sort` node's list
   output once it's been reduced to a scalar via `AggregateNode(First)` — a path can never select a
