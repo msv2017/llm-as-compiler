@@ -239,7 +239,7 @@ here, to itself:
 - **`run` requires structured MCP tool output.** A tool that only returns unstructured text content
   (no `structuredContent` in its `CallToolResult`) can't be used by a compiled workflow — Flow
   Runtime has no way to interpret free text as a typed value.
-- **`run` has the same no-auth/no-timeout gap on its MCP connection that `scaffold` already has**
+- **`run` has the same no-auth/no-timeout/URL-echo gaps on its MCP connection that `scaffold` already has**
   (see below).
 - **`run` never re-validates.** Validation happens once, at `compile` time. If a compiled workflow
   file is hand-edited into something invalid, `run` has no validator pass to catch it — it will
