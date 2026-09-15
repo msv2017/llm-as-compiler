@@ -104,6 +104,29 @@ public class RunCommandTests
         }
     }
 
+    [Fact]
+    public async Task UnreachableMcpServer_ReturnsExitCode2_WithUrlInError()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var workflowPath = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(workflowPath, CompiledWorkflowJson.Write(SimpleWorkflow()));
+
+            var exitCode = await RunCommand.RunAsync(
+                new[] { workflowPath, "--mcp-url", "http://localhost:1/mcp", "--input-json", "{ \"customerId\": \"c1\" }" },
+                stdout, stderr);
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("localhost:1", stderr.ToString());
+        }
+        finally
+        {
+            File.Delete(workflowPath);
+        }
+    }
+
     private static Flow.IR.WorkflowDefinition SimpleWorkflow()
     {
         var call = new Flow.IR.Nodes.CallNode("customer", "crm.getCustomerById",

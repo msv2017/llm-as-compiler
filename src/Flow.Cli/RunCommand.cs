@@ -1,6 +1,9 @@
 using System.Text.Json;
+using Flow.Analysis;
 using Flow.Cli.Runtime;
 using Flow.IR;
+using Flow.Runtime;
+using ModelContextProtocol.Client;
 
 namespace Flow.Cli;
 
@@ -85,10 +88,54 @@ public static class RunCommand
         return await ExecuteAsync(workflow, input, mcpUri, stdout, stderr);
     }
 
-    private static Task<int> ExecuteAsync(
+    private static async Task<int> ExecuteAsync(
         WorkflowDefinition workflow, object? input, Uri mcpUri, TextWriter stdout, TextWriter stderr)
     {
-        // Implemented in the next task.
-        throw new NotImplementedException();
+        McpClient client;
+        try
+        {
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Endpoint = mcpUri,
+                TransportMode = HttpTransportMode.AutoDetect
+            });
+            client = await McpClient.CreateAsync(transport);
+        }
+        catch (Exception ex)
+        {
+            stderr.WriteLine($"Could not connect to '{mcpUri}': {ex.Message}");
+            return 2;
+        }
+
+        await using (client)
+        {
+            var invoker = new McpToolInvoker(client);
+            var guard = new RuntimeGuard(invoker, CapabilityAnalyzer.Analyze(workflow));
+
+            ExecutionResult result;
+            try
+            {
+                result = await new WorkflowExecutor().ExecuteAsync(workflow, input, guard);
+            }
+            catch (Exception ex)
+            {
+                stderr.WriteLine(ex.Message);
+                return 1;
+            }
+
+            if (!result.Success)
+            {
+                stdout.WriteLine("Status: Failed");
+                stdout.WriteLine($"Reason: {result.FailureReason}");
+                return 1;
+            }
+
+            stdout.WriteLine("Status: Success");
+            stdout.WriteLine();
+            stdout.WriteLine("Output:");
+            var outputJson = FlowJsonBridge.ToJsonValue(result.Output);
+            stdout.WriteLine(outputJson!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            return 0;
+        }
     }
 }

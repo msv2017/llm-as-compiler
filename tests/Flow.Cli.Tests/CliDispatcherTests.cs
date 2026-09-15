@@ -53,4 +53,18 @@ public class CliDispatcherTests
         Assert.Equal(2, exitCode);
         Assert.Contains("scaffold <output.json>", stderr.ToString());
     }
+
+    [Fact]
+    public async Task RunSubcommand_DelegatesToRunCommand()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+
+        // No further args after "run" -> RunCommand's own usage error, proving dispatch
+        // actually reached RunCommand rather than falling through to the Unknown branch.
+        var exitCode = await CliDispatcher.RunAsync(new[] { "run" }, stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.Contains("run <compiled-workflow.json>", stderr.ToString());
+    }
 }

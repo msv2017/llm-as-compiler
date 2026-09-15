@@ -6,7 +6,7 @@ public static class CliDispatcher
     {
         if (args.Length == 0)
         {
-            stderr.WriteLine("Usage: flow-cli <compile|scaffold> ...");
+            stderr.WriteLine("Usage: flow-cli <compile|scaffold|run> ...");
             return 2;
         }
 
@@ -17,13 +17,14 @@ public static class CliDispatcher
         {
             "compile" => await CompileCommand.RunAsync(rest, stdout, stderr),
             "scaffold" => await ScaffoldCommand.RunAsync(rest, stdout, stderr),
+            "run" => await RunCommand.RunAsync(rest, stdout, stderr),
             _ => Unknown(subcommand, stderr)
         };
     }
 
     private static int Unknown(string subcommand, TextWriter stderr)
     {
-        stderr.WriteLine($"Unknown command '{subcommand}'. Expected 'compile' or 'scaffold'.");
+        stderr.WriteLine($"Unknown command '{subcommand}'. Expected 'compile', 'scaffold', or 'run'.");
         return 2;
     }
 }
