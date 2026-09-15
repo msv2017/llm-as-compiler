@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Flow.Compiler.Candidate;
 using Flow.IR;
 using Flow.TypeSystem;
@@ -14,13 +15,13 @@ internal sealed class CompiledWorkflowFileJson
 
 public static class CompiledWorkflowJson
 {
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly JsonSerializerOptions Options = new(CandidateJson.Options);
 
-    private static readonly JsonSerializerOptions WriteOptions = new(Options) { WriteIndented = true };
+    private static readonly JsonSerializerOptions WriteOptions = new(Options)
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     public static string Write(WorkflowDefinition workflow)
     {
@@ -40,7 +41,7 @@ public static class CompiledWorkflowJson
         {
             file = JsonSerializer.Deserialize<CompiledWorkflowFileJson>(json, Options);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new ScenarioParseException($"Compiled workflow file is not valid JSON: {ex.Message}");
         }
@@ -56,6 +57,13 @@ public static class CompiledWorkflowJson
 
         var inputType = ScenarioJson.ToFlowType(file.InputType, "inputType");
         var outputType = ScenarioJson.ToFlowType(file.OutputType, "outputType");
-        return CandidateToIrConverter.Convert(file.Workflow, inputType, outputType);
+        try
+        {
+            return CandidateToIrConverter.Convert(file.Workflow, inputType, outputType);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            throw new ScenarioParseException($"Compiled workflow file has an invalid workflow: {ex.Message}");
+        }
     }
 }

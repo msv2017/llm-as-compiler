@@ -113,7 +113,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~215 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~242 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -140,7 +140,7 @@ exercise anything.
   below).
 
 ```bash
-dotnet run --project src/Flow.Cli -- compile scenario.json [--provider openai|anthropic]
+dotnet run --project src/Flow.Cli -- compile scenario.json --save workflow.json [--provider openai|anthropic]
 ```
 
 `--provider` defaults to `openai`. Exit codes: `0` compiled successfully, `1` compiled to

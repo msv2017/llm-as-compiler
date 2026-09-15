@@ -13,8 +13,8 @@ public sealed class McpToolInvoker : IMcpInvoker
     public async Task<object?> InvokeAsync(
         string toolName, IReadOnlyDictionary<string, object?> arguments, CancellationToken cancellationToken = default)
     {
-        var jsonArguments = arguments.ToDictionary(kv => kv.Key, kv => (object)FlowJsonBridge.ToJsonValue(kv.Value)!);
-        var result = await _client.CallToolAsync(toolName, (IReadOnlyDictionary<string, object?>)jsonArguments, cancellationToken: cancellationToken);
+        var jsonArguments = arguments.ToDictionary(kv => kv.Key, kv => (object?)FlowJsonBridge.ToJsonValue(kv.Value));
+        var result = await _client.CallToolAsync(toolName, jsonArguments, cancellationToken: cancellationToken);
         return ConvertResult(result, toolName);
     }
 

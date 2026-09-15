@@ -54,4 +54,65 @@ public class CompiledWorkflowJsonTests
         var ex = Assert.Throws<ScenarioParseException>(() => CompiledWorkflowJson.Parse(json));
         Assert.Contains("workflow", ex.Message);
     }
+
+    [Fact]
+    public void Parse_InvalidSortDirection_ThrowsScenarioParseException()
+    {
+        var json = """
+        {
+          "inputType": { "kind": "primitive", "name": "String" },
+          "outputType": { "kind": "primitive", "name": "String" },
+          "workflow": {
+            "name": "BadSort",
+            "nodes": [
+              {
+                "kind": "sort",
+                "id": "sorted",
+                "source": { "kind": "path", "path": "input" },
+                "parameterName": "item",
+                "key": { "kind": "path", "path": "item" },
+                "direction": "ASC"
+              }
+            ],
+            "return": { "value": { "kind": "path", "path": "sorted" } }
+          }
+        }
+        """;
+
+        var ex = Assert.Throws<ScenarioParseException>(() => CompiledWorkflowJson.Parse(json));
+        Assert.Contains("invalid workflow", ex.Message);
+    }
+
+    [Fact]
+    public void Write_ThenParse_RoundTripsFilterSortAggregateAssertAndForeachNodes()
+    {
+        var filter = new FilterNode("openInvoices", new PathExpression("input.invoices"), "invoice",
+            new BinaryExpression(new PathExpression("invoice.status"), BinaryOperator.Equal, new ConstantExpression("OPEN", new ConstantProvenance(ConstantProvenanceKind.Prompt))));
+        var sort = new SortNode("sorted", new PathExpression("openInvoices"), "invoice", new PathExpression("invoice.dueDate"), SortDirection.Ascending);
+        var aggregate = new AggregateNode("oldest", new PathExpression("sorted"), AggregateOperation.First, null, null);
+        var assert = new AssertNode("guard", new BinaryExpression(new PathExpression("oldest"), BinaryOperator.NotEqual, new ConstantExpression(null, new ConstantProvenance(ConstantProvenanceKind.Unproven))), "NO_OPEN_INVOICES");
+        var foreachNode = new ForeachNode("ids", new PathExpression("input.invoices"), "invoice", 100,
+            Array.Empty<WorkflowNode>(), new PathExpression("invoice.id"));
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["ids"] = new PathExpression("ids") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType>());
+        var workflow = new WorkflowDefinition("RefundOldestInvoice", inputType, outputType,
+            new WorkflowNode[] { filter, sort, aggregate, assert, foreachNode }, returnNode);
+
+        var json = CompiledWorkflowJson.Write(workflow);
+        var parsed = CompiledWorkflowJson.Parse(json);
+
+        Assert.Equal(5, parsed.Nodes.Count);
+        var parsedFilter = Assert.IsType<FilterNode>(parsed.Nodes[0]);
+        Assert.Equal("invoice", parsedFilter.ParameterName);
+        var parsedSort = Assert.IsType<SortNode>(parsed.Nodes[1]);
+        Assert.Equal(SortDirection.Ascending, parsedSort.Direction);
+        var parsedAggregate = Assert.IsType<AggregateNode>(parsed.Nodes[2]);
+        Assert.Equal(AggregateOperation.First, parsedAggregate.Operation);
+        Assert.Null(parsedAggregate.Selector);
+        var parsedAssert = Assert.IsType<AssertNode>(parsed.Nodes[3]);
+        Assert.Equal("NO_OPEN_INVOICES", parsedAssert.FailureCode);
+        var parsedForeach = Assert.IsType<ForeachNode>(parsed.Nodes[4]);
+        Assert.Equal(100, parsedForeach.Limit);
+    }
 }
