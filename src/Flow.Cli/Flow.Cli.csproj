@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Flow.Compiler\Flow.Compiler.csproj" />
+    <ProjectReference Include="..\Flow.Runtime\Flow.Runtime.csproj" />
+    <ProjectReference Include="..\Flow.Analysis\Flow.Analysis.csproj" />
   </ItemGroup>
 
   <ItemGroup>
