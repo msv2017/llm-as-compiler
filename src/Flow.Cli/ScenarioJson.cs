@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using Flow.Compiler;
 using Flow.Contracts;
@@ -90,7 +91,7 @@ public static class ScenarioJson
         return new ToolDefinition(tool.Name, inputObjectType, outputType, effect, retry);
     }
 
-    private static FlowType ToFlowType(FlowTypeJson? json, string path)
+    internal static FlowType ToFlowType(FlowTypeJson? json, string path)
     {
         if (json is null)
             throw new ScenarioParseException($"{path} is missing.");
@@ -107,6 +108,25 @@ public static class ScenarioJson
                 $"{path} has unknown kind '{json.Kind}'. Expected one of: primitive, object, list, optional, semantic, enum.")
         };
     }
+
+    internal static FlowTypeJson FromFlowType(FlowType type) => type switch
+    {
+        PrimitiveType primitive => new FlowTypeJson { Kind = "primitive", Name = primitive.Kind.ToString() },
+        ObjectType obj => new FlowTypeJson
+        {
+            Kind = "object",
+            Name = obj.Name,
+            Fields = obj.Fields.ToDictionary(kv => kv.Key, kv => FromFlowType(kv.Value))
+        },
+        ListType list => new FlowTypeJson { Kind = "list", ElementType = FromFlowType(list.ElementType) },
+        OptionalType optional => new FlowTypeJson { Kind = "optional", InnerType = FromFlowType(optional.InnerType) },
+        SemanticType semantic => new FlowTypeJson
+        {
+            Kind = "semantic", Name = semantic.Name, Underlying = FromFlowType(semantic.Underlying)
+        },
+        EnumType enumType => new FlowTypeJson { Kind = "enum", Name = enumType.Name, Values = enumType.Values.ToList() },
+        _ => throw new NotSupportedException($"Unsupported FlowType kind '{type.GetType().Name}'.")
+    };
 
     private static FlowType ParsePrimitive(FlowTypeJson json, string path)
     {

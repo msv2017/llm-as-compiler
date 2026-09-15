@@ -179,4 +179,21 @@ public class ScenarioJsonTests
         Assert.Contains("inputType", ex.Message);
         Assert.Contains("object", ex.Message);
     }
+
+    [Fact]
+    public void FromFlowType_ThenToFlowType_RoundTrips_EveryKind()
+    {
+        var type = new ObjectType("Request", new Dictionary<string, FlowType>
+        {
+            ["id"] = new SemanticType("CustomerId", PrimitiveType.String),
+            ["tags"] = new ListType(PrimitiveType.String),
+            ["note"] = new OptionalType(PrimitiveType.String),
+            ["status"] = new EnumType("Status", new[] { "Open", "Closed" })
+        });
+
+        var json = ScenarioJson.FromFlowType(type);
+        var roundTripped = ScenarioJson.ToFlowType(json, "test");
+
+        Assert.True(FlowTypesEqual(type, roundTripped));
+    }
 }
