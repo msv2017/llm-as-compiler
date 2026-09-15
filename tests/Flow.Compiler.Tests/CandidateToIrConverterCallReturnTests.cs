@@ -70,6 +70,30 @@ public class CandidateToIrConverterCallReturnTests
         Assert.Equal("Ada Lovelace", result.Output!.Get("customerName"));
     }
 
+    [Fact]
+    public void ConvertOverload_TakingBodyDirectly_ProducesSameShapeAsAstOverload()
+    {
+        var body = new CandidateWorkflowBody(
+            "FindCustomerName",
+            new CandidateNode[]
+            {
+                new CandidateCallNode("customer", "crm.getCustomerById",
+                    new Dictionary<string, CandidateExpression> { ["id"] = new CandidatePathExpression("input.customerId") })
+            },
+            new Dictionary<string, CandidateExpression> { ["customerName"] = new CandidatePathExpression("customer.name") });
+
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType> { ["customerId"] = PrimitiveType.String });
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["customerName"] = PrimitiveType.String });
+
+        var workflow = CandidateToIrConverter.Convert(body, inputType, outputType);
+
+        Assert.Equal("FindCustomerName", workflow.Name);
+        var call = Assert.IsType<CallNode>(Assert.Single(workflow.Nodes));
+        Assert.Equal("crm.getCustomerById", call.ToolName);
+        var returnArg = Assert.IsType<PathExpression>(workflow.Return.Fields["customerName"]);
+        Assert.Equal("customer.name", returnArg.Path);
+    }
+
     private sealed class FakeInvoker : IMcpInvoker
     {
         public Task<object?> InvokeAsync(string toolName, IReadOnlyDictionary<string, object?> arguments, CancellationToken cancellationToken = default)

@@ -8,11 +8,14 @@ namespace Flow.Compiler.Candidate;
 
 public static class CandidateToIrConverter
 {
-    public static WorkflowDefinition Convert(CandidateWorkflowAst ast, FlowType inputType, FlowType outputType)
+    public static WorkflowDefinition Convert(CandidateWorkflowAst ast, FlowType inputType, FlowType outputType) =>
+        Convert(ast.Workflow, inputType, outputType);
+
+    public static WorkflowDefinition Convert(CandidateWorkflowBody body, FlowType inputType, FlowType outputType)
     {
-        var nodes = ConvertNodes(ast.Workflow.Nodes);
-        var returnFields = ConvertExpressionMap(ast.Workflow.Return);
-        return new WorkflowDefinition(ast.Workflow.Name, inputType, outputType, nodes, new ReturnNode(returnFields));
+        var nodes = ConvertNodes(body.Nodes);
+        var returnFields = ConvertExpressionMap(body.Return);
+        return new WorkflowDefinition(body.Name, inputType, outputType, nodes, new ReturnNode(returnFields));
     }
 
     private static IReadOnlyList<WorkflowNode> ConvertNodes(IReadOnlyList<CandidateNode> nodes) =>
