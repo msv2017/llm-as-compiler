@@ -5,12 +5,13 @@ namespace Flow.Cli;
 
 public static class CompileCommand
 {
-    private const string Usage = "Usage: flow-cli compile <scenario.json> [--provider openai|anthropic]";
+    private const string Usage = "Usage: flow-cli compile <scenario.json> [--provider openai|anthropic] [--save <path>]";
 
     public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr)
     {
         string? path = null;
         string provider = "openai";
+        string? savePath = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -22,6 +23,15 @@ public static class CompileCommand
                     return 2;
                 }
                 provider = args[++i];
+            }
+            else if (args[i] == "--save")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    stderr.WriteLine(Usage);
+                    return 2;
+                }
+                savePath = args[++i];
             }
             else if (path is null)
             {
@@ -83,6 +93,20 @@ public static class CompileCommand
         var result = await compiler.CompileAsync(source, tools);
 
         WriteResult(result, stdout);
+
+        if (savePath is not null && result.Status == CompilationStatus.Success)
+        {
+            try
+            {
+                await File.WriteAllTextAsync(savePath, CompiledWorkflowJson.Write(result.Workflow!));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                stderr.WriteLine($"Could not write '{savePath}': {ex.Message}");
+                return 2;
+            }
+        }
+
         return result.Status == CompilationStatus.Success ? 0 : 1;
     }
 

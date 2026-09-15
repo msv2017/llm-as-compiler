@@ -185,6 +185,39 @@ public class CompileCommandTests
         Assert.Contains("Usage:", stderr.ToString());
     }
 
+    [Fact]
+    public async Task SaveFlagMissingValue_PrintsUsage_ReturnsExitCode2()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var path = Path.GetTempFileName();
+        try
+        {
+            var exitCode = await CompileCommand.RunAsync(new[] { path, "--save" }, stdout, stderr);
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("Usage:", stderr.ToString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task SaveFlag_ScenarioFileMissing_DoesNotWriteSaveFile()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var missingScenarioPath = Path.Combine(Path.GetTempPath(), $"flow-cli-scenario-{Guid.NewGuid():N}.json");
+        var savePath = Path.Combine(Path.GetTempPath(), $"flow-cli-save-{Guid.NewGuid():N}.json");
+
+        var exitCode = await CompileCommand.RunAsync(new[] { missingScenarioPath, "--save", savePath }, stdout, stderr);
+
+        Assert.Equal(2, exitCode);
+        Assert.False(File.Exists(savePath));
+    }
+
     private const string ValidScenarioJson = """
     {
       "prompt": "p",
