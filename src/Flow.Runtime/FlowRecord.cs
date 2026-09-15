@@ -6,6 +6,8 @@ public sealed class FlowRecord
 
     public FlowRecord(IReadOnlyDictionary<string, object?> fields) => _fields = fields;
 
+    public IReadOnlyDictionary<string, object?> Fields => _fields;
+
     public object? Get(string fieldName) =>
         _fields.TryGetValue(fieldName, out var value)
             ? value
