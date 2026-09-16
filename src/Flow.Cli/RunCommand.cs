@@ -136,7 +136,7 @@ public static class RunCommand
             }
             catch (Exception ex)
             {
-                stderr.WriteLine(ex.Message);
+                stderr.WriteLine(McpAuthHeaders.RedactToken(ex.Message));
                 return 1;
             }
 
