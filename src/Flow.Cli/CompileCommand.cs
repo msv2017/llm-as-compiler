@@ -105,6 +105,17 @@ public static class CompileCommand
                 stderr.WriteLine($"Could not write '{savePath}': {ex.Message}");
                 return 2;
             }
+
+            var readablePath = GetHumanReadablePath(savePath);
+            try
+            {
+                await File.WriteAllTextAsync(readablePath, WorkflowPrinter.Print(result.Workflow!));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                stderr.WriteLine($"Could not write '{readablePath}': {ex.Message}");
+                return 2;
+            }
         }
 
         return result.Status == CompilationStatus.Success ? 0 : 1;
@@ -153,4 +164,9 @@ public static class CompileCommand
             stdout.Write(WorkflowPrinter.Print(result.Workflow));
         }
     }
+
+    internal static string GetHumanReadablePath(string savePath) =>
+        string.Equals(Path.GetExtension(savePath), ".txt", StringComparison.OrdinalIgnoreCase)
+            ? savePath + ".readable.txt"
+            : Path.ChangeExtension(savePath, ".txt");
 }

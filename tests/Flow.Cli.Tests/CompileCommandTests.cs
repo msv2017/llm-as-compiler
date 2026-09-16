@@ -218,6 +218,38 @@ public class CompileCommandTests
         Assert.False(File.Exists(savePath));
     }
 
+    [Fact]
+    public void GetHumanReadablePath_JsonExtension_SwapsToTxt()
+    {
+        var result = CompileCommand.GetHumanReadablePath("workflow.json");
+
+        Assert.Equal("workflow.txt", result);
+    }
+
+    [Fact]
+    public void GetHumanReadablePath_NoExtension_AppendsTxt()
+    {
+        var result = CompileCommand.GetHumanReadablePath("workflow");
+
+        Assert.Equal("workflow.txt", result);
+    }
+
+    [Fact]
+    public void GetHumanReadablePath_AlreadyTxtExtension_AppendsReadableTxtToAvoidCollision()
+    {
+        var result = CompileCommand.GetHumanReadablePath("workflow.txt");
+
+        Assert.Equal("workflow.txt.readable.txt", result);
+    }
+
+    [Fact]
+    public void GetHumanReadablePath_PathWithDirectory_PreservesDirectory()
+    {
+        var result = CompileCommand.GetHumanReadablePath(Path.Combine("out", "workflow.json"));
+
+        Assert.Equal(Path.Combine("out", "workflow.txt"), result);
+    }
+
     private const string ValidScenarioJson = """
     {
       "prompt": "p",
