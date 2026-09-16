@@ -7,13 +7,19 @@ public sealed record DiscoveredTool(string Name, string? Description, JsonElemen
 
 public static class McpToolDiscovery
 {
-    public static async Task<IReadOnlyList<DiscoveredTool>> DiscoverAsync(Uri mcpUrl, CancellationToken cancellationToken)
+    public static async Task<IReadOnlyList<DiscoveredTool>> DiscoverAsync(
+        Uri mcpUrl, CancellationToken cancellationToken, IReadOnlyDictionary<string, string>? additionalHeaders = null)
     {
-        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        var options = new HttpClientTransportOptions
         {
             Endpoint = mcpUrl,
             TransportMode = HttpTransportMode.AutoDetect
-        });
+        };
+
+        if (additionalHeaders is not null)
+            options.AdditionalHeaders = new Dictionary<string, string>(additionalHeaders);
+
+        var transport = new HttpClientTransport(options);
 
         await using var client = await McpClient.CreateAsync(transport, cancellationToken: cancellationToken);
         var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);

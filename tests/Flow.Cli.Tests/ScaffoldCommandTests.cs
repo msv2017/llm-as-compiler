@@ -88,6 +88,29 @@ public class ScaffoldCommandTests
     }
 
     [Fact]
+    public async Task McpAuthHeaderFlagWithoutEnvVar_ReturnsExitCode2()
+    {
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        var original = Environment.GetEnvironmentVariable("MCP_AUTH_TOKEN");
+        try
+        {
+            Environment.SetEnvironmentVariable("MCP_AUTH_TOKEN", null);
+
+            var exitCode = await ScaffoldCommand.RunAsync(
+                new[] { "out.json", "--mcp-url", "http://localhost:3001/mcp", "--prompt", "p", "--mcp-auth-header", "X-Api-Key" },
+                stdout, stderr);
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("MCP_AUTH_TOKEN", stderr.ToString());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MCP_AUTH_TOKEN", original);
+        }
+    }
+
+    [Fact]
     public void ToToolJson_ThenScenarioJsonParse_RoundTripsWithoutThrowing()
     {
         var inputSchema = JsonDocument.Parse("""

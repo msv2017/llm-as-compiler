@@ -1,12 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Flow.Cli.Runtime;
 using Flow.Cli.Scaffold;
 
 namespace Flow.Cli;
 
 public static class ScaffoldCommand
 {
-    private const string Usage = "Usage: flow-cli scaffold <output.json> --mcp-url <url> --prompt \"<text>\"";
+    private const string Usage = "Usage: flow-cli scaffold <output.json> --mcp-url <url> --prompt \"<text>\" [--mcp-auth-header <Name>]";
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -20,6 +21,7 @@ public static class ScaffoldCommand
         string? outputPath = null;
         string? mcpUrl = null;
         string? prompt = null;
+        string? authHeaderName = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -32,6 +34,10 @@ public static class ScaffoldCommand
                 case "--prompt":
                     if (i + 1 >= args.Length) { stderr.WriteLine(Usage); return 2; }
                     prompt = args[++i];
+                    break;
+                case "--mcp-auth-header":
+                    if (i + 1 >= args.Length) { stderr.WriteLine(Usage); return 2; }
+                    authHeaderName = args[++i];
                     break;
                 default:
                     if (outputPath is null)
@@ -59,10 +65,16 @@ public static class ScaffoldCommand
             return 2;
         }
 
+        if (!McpAuthHeaders.TryResolve(authHeaderName, out var authHeaders, out var authError))
+        {
+            stderr.WriteLine(authError);
+            return 2;
+        }
+
         IReadOnlyList<DiscoveredTool> discovered;
         try
         {
-            discovered = await McpToolDiscovery.DiscoverAsync(mcpUri, CancellationToken.None);
+            discovered = await McpToolDiscovery.DiscoverAsync(mcpUri, CancellationToken.None, authHeaders);
         }
         catch (Exception ex)
         {
