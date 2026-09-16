@@ -5,7 +5,7 @@ public static class McpAuthHeaders
     public const string EnvVarName = "MCP_AUTH_TOKEN";
 
     private static readonly System.Text.RegularExpressions.Regex ValidHeaderName =
-        new(@"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+        new(@"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+\z", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     public static bool TryResolve(string? headerNameFlag, out IReadOnlyDictionary<string, string>? headers, out string? error)
     {
@@ -43,5 +43,11 @@ public static class McpAuthHeaders
         headers = new Dictionary<string, string> { [headerName] = token };
         error = null;
         return true;
+    }
+
+    public static string RedactToken(string message)
+    {
+        var token = Environment.GetEnvironmentVariable(EnvVarName);
+        return string.IsNullOrEmpty(token) ? message : message.Replace(token, "<redacted>");
     }
 }

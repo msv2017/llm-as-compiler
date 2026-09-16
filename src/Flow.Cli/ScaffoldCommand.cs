@@ -78,7 +78,7 @@ public static class ScaffoldCommand
         }
         catch (Exception ex)
         {
-            stderr.WriteLine($"Could not discover tools from '{mcpUrl}': {ex.Message}");
+            stderr.WriteLine($"Could not discover tools from '{mcpUrl}': {McpAuthHeaders.RedactToken(ex.Message)}");
             return 2;
         }
 

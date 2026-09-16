@@ -157,12 +157,14 @@ public class RunCommandTests
         var stdout = new StringWriter();
         var stderr = new StringWriter();
         var original = Environment.GetEnvironmentVariable("MCP_AUTH_TOKEN");
+        var workflowPath = Path.GetTempFileName();
         try
         {
+            await File.WriteAllTextAsync(workflowPath, CompiledWorkflowJson.Write(SimpleWorkflow()));
             Environment.SetEnvironmentVariable("MCP_AUTH_TOKEN", "Bearer super-secret-token-value");
 
             var exitCode = await RunCommand.RunAsync(
-                new[] { "workflow.json", "--mcp-url", "http://localhost:1/mcp", "--input-json", "{}", "--mcp-auth-header", "X-Api Key" },
+                new[] { workflowPath, "--mcp-url", "http://localhost:1/mcp", "--input-json", "{}", "--mcp-auth-header", "X-Api Key" },
                 stdout, stderr);
 
             Assert.Equal(2, exitCode);
@@ -171,6 +173,7 @@ public class RunCommandTests
         finally
         {
             Environment.SetEnvironmentVariable("MCP_AUTH_TOKEN", original);
+            File.Delete(workflowPath);
         }
     }
 

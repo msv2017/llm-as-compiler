@@ -120,7 +120,7 @@ public static class RunCommand
         }
         catch (Exception ex)
         {
-            stderr.WriteLine($"Could not connect to '{mcpUri}': {ex.Message}");
+            stderr.WriteLine($"Could not connect to '{mcpUri}': {McpAuthHeaders.RedactToken(ex.Message)}");
             return 2;
         }
 

@@ -113,7 +113,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~258 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~261 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -231,7 +231,9 @@ MCP_AUTH_TOKEN="secret-key" dotnet run --project src/Flow.Cli -- run workflow.js
 ```
 
 Passing `--mcp-auth-header` without `MCP_AUTH_TOKEN` set is a usage error (exit 2) — the flag alone
-has nothing to send.
+has nothing to send. An invalid header name (not a valid HTTP header token) or a token containing
+control characters (e.g. a stray trailing newline) are also rejected before any network I/O, with
+the same exit code 2.
 
 ## Providers
 

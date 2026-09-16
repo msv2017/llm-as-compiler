@@ -149,4 +149,61 @@ public class McpAuthHeadersTests
             Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
         }
     }
+
+    [Fact]
+    public void TryResolve_HeaderNameWithTrailingNewline_ReturnsFalse()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, "Bearer super-secret-token-value");
+
+            var ok = McpAuthHeaders.TryResolve("X-Api-Key\n", out var headers, out var error);
+
+            Assert.False(ok);
+            Assert.Null(headers);
+            Assert.DoesNotContain("super-secret-token-value", error);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
+
+    [Fact]
+    public void RedactToken_ReplacesTokenValueWithPlaceholder()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, "super-secret-token-value");
+
+            var redacted = McpAuthHeaders.RedactToken("Failed to add header 'X' with value 'super-secret-token-value' from AdditionalHeaders.");
+
+            Assert.DoesNotContain("super-secret-token-value", redacted);
+            Assert.Contains("<redacted>", redacted);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
+
+    [Fact]
+    public void RedactToken_NoTokenSet_ReturnsMessageUnchanged()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, null);
+
+            var redacted = McpAuthHeaders.RedactToken("some message");
+
+            Assert.Equal("some message", redacted);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
 }
