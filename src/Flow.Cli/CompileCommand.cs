@@ -113,8 +113,7 @@ public static class CompileCommand
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                stderr.WriteLine($"Could not write '{readablePath}': {ex.Message}");
-                return 2;
+                stderr.WriteLine($"Warning: could not write human-readable output '{readablePath}': {ex.Message}");
             }
         }
 

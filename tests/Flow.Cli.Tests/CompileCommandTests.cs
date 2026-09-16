@@ -216,6 +216,7 @@ public class CompileCommandTests
 
         Assert.Equal(2, exitCode);
         Assert.False(File.Exists(savePath));
+        Assert.False(File.Exists(CompileCommand.GetHumanReadablePath(savePath)));
     }
 
     [Fact]

@@ -113,7 +113,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~244 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~248 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -133,7 +133,12 @@ exercise anything.
 
 - `compile` turns a JSON **scenario file** — a prompt, its input/output types, and the tool catalog
   — into a workflow and prints the result. Add `--save <path>` to also persist the compiled
-  workflow to a file `run` can load later.
+  workflow to a file `run` can load later. This also writes a second, human-readable rendering of
+  the workflow next to it, at a path derived from `--save`'s own path (the extension swapped to
+  `.txt`; if `--save`'s path already ends in `.txt`, the derived name is `<path>.readable.txt`
+  instead, so it doesn't overwrite the JSON file). That derived path isn't something you choose —
+  if a file already exists there, it's silently overwritten — and if writing it fails, that's only
+  a warning; the JSON file and `compile`'s exit code are unaffected.
 - `run` loads a workflow file previously written by `compile --save` and executes it against a
   live MCP server — no LLM calls, no scenario file needed at this stage.
 - `scaffold` discovers a live MCP server's tools and writes most of that scenario file for you (see
@@ -145,7 +150,9 @@ dotnet run --project src/Flow.Cli -- compile scenario.json --save workflow.json 
 
 `--provider` defaults to `openai`. Exit codes: `0` compiled successfully, `1` compiled to
 `Uncompilable` (the compiler correctly rejected the prompt), `2` a usage/setup problem (bad
-arguments, missing file, malformed scenario JSON, missing API key).
+arguments, missing file, malformed scenario JSON, missing API key, or the JSON `--save` file itself
+failing to write). A failure to write the derived human-readable `.txt` sibling is not one of the
+`2` cases — it's reported as a warning on stderr and doesn't change the exit code.
 
 ```bash
 dotnet run --project src/Flow.Cli -- run workflow.json --mcp-url http://localhost:3001/mcp --input-json '{"customerId":"c1"}'
