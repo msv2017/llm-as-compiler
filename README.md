@@ -113,7 +113,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~248 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~254 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -217,6 +217,22 @@ It prints a "needs manual review" list of everything it couldn't determine:
 - any per-field schema shape it couldn't convert (`oneOf`/`anyOf`/`$ref`, or a missing output
   schema) — those fields get a `String` or empty-object placeholder instead of a silent guess
 
+### Authenticating to a protected MCP server
+
+Both `scaffold` and `run` connect to an MCP server the same way, and both support the same single
+static credential: set `MCP_AUTH_TOKEN` to the full header value the server expects (e.g.
+`Bearer sk-...`), and it's sent as the `Authorization` header on every request. If the server needs
+a different header name, add `--mcp-auth-header <Name>` (e.g. `--mcp-auth-header X-Api-Key`) to
+either command.
+
+```bash
+MCP_AUTH_TOKEN="Bearer sk-..." dotnet run --project src/Flow.Cli -- scaffold out.json --mcp-url https://your-mcp-server/mcp --prompt "..."
+MCP_AUTH_TOKEN="secret-key" dotnet run --project src/Flow.Cli -- run workflow.json --mcp-url https://your-mcp-server/mcp --mcp-auth-header X-Api-Key --input-json '{}'
+```
+
+Passing `--mcp-auth-header` without `MCP_AUTH_TOKEN` set is a usage error (exit 2) — the flag alone
+has nothing to send.
+
 ## Providers
 
 Two `ISemanticCompilerModel` implementations exist, both going through the same provider-neutral
@@ -246,7 +262,7 @@ here, to itself:
 - **`run` requires structured MCP tool output.** A tool that only returns unstructured text content
   (no `structuredContent` in its `CallToolResult`) can't be used by a compiled workflow — Flow
   Runtime has no way to interpret free text as a typed value.
-- **`run` has the same no-auth/no-timeout/URL-echo gaps on its MCP connection that `scaffold` already has**
+- **`run` has the same no-timeout/URL-echo gaps on its MCP connection that `scaffold` already has**
   (see below).
 - **`run` never re-validates.** Validation happens once, at `compile` time. If a compiled workflow
   file is hand-edited into something invalid, `run` has no validator pass to catch it — it will
@@ -258,8 +274,10 @@ here, to itself:
 - **`CandidateWorkflowAst.Interpretations`** is surfaced on `CompilationResult` but currently only
   ever populated when the model chooses to record one; there's no requirement that it explain every
   non-trivial choice.
-- **`scaffold` has no auth support** — it can only talk to an MCP server that needs no credentials;
-  there's no flag yet for headers or tokens.
+- **Auth support is a single static header only** — `--mcp-auth-header`/`MCP_AUTH_TOKEN` (see
+  "Authenticating to a protected MCP server" above) covers a static API key or bearer token. There's
+  no OAuth flow — the MCP SDK has one, but it needs a browser and is a mismatch for a CLI meant to
+  run in scripts/pipelines.
 - **`scaffold` has no request timeout** — a slow or wedged MCP endpoint hangs the CLI indefinitely
   (Ctrl+C is the only way out).
 - **`scaffold` echoes the MCP URL verbatim** in its output and in any connection-failure message —
