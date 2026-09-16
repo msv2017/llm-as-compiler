@@ -10,7 +10,7 @@ namespace Flow.Cli;
 public static class RunCommand
 {
     private const string Usage =
-        "Usage: flow-cli run <compiled-workflow.json> --mcp-url <url> (--input <input.json> | --input-json <json>)";
+        "Usage: flow-cli run <compiled-workflow.json> --mcp-url <url> (--input <input.json> | --input-json <json>) [--mcp-auth-header <Name>]";
 
     public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr)
     {
@@ -18,6 +18,7 @@ public static class RunCommand
         string? mcpUrl = null;
         string? inputPath = null;
         string? inputJson = null;
+        string? authHeaderName = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -34,6 +35,10 @@ public static class RunCommand
                 case "--input-json":
                     if (i + 1 >= args.Length) { stderr.WriteLine(Usage); return 2; }
                     inputJson = args[++i];
+                    break;
+                case "--mcp-auth-header":
+                    if (i + 1 >= args.Length) { stderr.WriteLine(Usage); return 2; }
+                    authHeaderName = args[++i];
                     break;
                 default:
                     if (workflowPath is null) { workflowPath = args[i]; }
@@ -57,6 +62,12 @@ public static class RunCommand
         if (!Uri.TryCreate(mcpUrl, UriKind.Absolute, out var mcpUri))
         {
             stderr.WriteLine($"'{mcpUrl}' is not a valid absolute URL.");
+            return 2;
+        }
+
+        if (!McpAuthHeaders.TryResolve(authHeaderName, out var authHeaders, out var authError))
+        {
+            stderr.WriteLine(authError);
             return 2;
         }
 
@@ -85,20 +96,26 @@ public static class RunCommand
             return 2;
         }
 
-        return await ExecuteAsync(workflow, input, mcpUri, stdout, stderr);
+        return await ExecuteAsync(workflow, input, mcpUri, authHeaders, stdout, stderr);
     }
 
     private static async Task<int> ExecuteAsync(
-        WorkflowDefinition workflow, object? input, Uri mcpUri, TextWriter stdout, TextWriter stderr)
+        WorkflowDefinition workflow, object? input, Uri mcpUri, IReadOnlyDictionary<string, string>? authHeaders,
+        TextWriter stdout, TextWriter stderr)
     {
         McpClient client;
         try
         {
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            var options = new HttpClientTransportOptions
             {
                 Endpoint = mcpUri,
                 TransportMode = HttpTransportMode.AutoDetect
-            });
+            };
+
+            if (authHeaders is not null)
+                options.AdditionalHeaders = new Dictionary<string, string>(authHeaders);
+
+            var transport = new HttpClientTransport(options);
             client = await McpClient.CreateAsync(transport);
         }
         catch (Exception ex)
