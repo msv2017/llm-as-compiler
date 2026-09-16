@@ -6,6 +6,7 @@ using Flow.Contracts;
 
 namespace Flow.Cli.Tests;
 
+[Collection("EnvironmentVariableTests")]
 public class ScaffoldCommandTests
 {
     [Fact]

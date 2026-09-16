@@ -113,7 +113,7 @@ Requires the .NET 8 SDK or later.
 
 ```bash
 dotnet build
-dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~254 tests
+dotnet test --filter "FullyQualifiedName!~Flow.IntegrationTests"   # deterministic suite, no API key needed, ~258 tests
 ```
 
 To also run the live integration tests, set an API key first:
@@ -277,7 +277,8 @@ here, to itself:
 - **Auth support is a single static header only** — `--mcp-auth-header`/`MCP_AUTH_TOKEN` (see
   "Authenticating to a protected MCP server" above) covers a static API key or bearer token. There's
   no OAuth flow — the MCP SDK has one, but it needs a browser and is a mismatch for a CLI meant to
-  run in scripts/pipelines.
+  run in scripts/pipelines. The header is sent in cleartext over whatever scheme `--mcp-url` uses —
+  an `http://` URL transmits the token unencrypted; use `https://` for anything real.
 - **`scaffold` has no request timeout** — a slow or wedged MCP endpoint hangs the CLI indefinitely
   (Ctrl+C is the only way out).
 - **`scaffold` echoes the MCP URL verbatim** in its output and in any connection-failure message —

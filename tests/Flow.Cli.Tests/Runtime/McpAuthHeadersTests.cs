@@ -3,6 +3,7 @@ using Xunit;
 
 namespace Flow.Cli.Tests.Runtime;
 
+[Collection("EnvironmentVariableTests")]
 public class McpAuthHeadersTests
 {
     [Fact]
@@ -82,6 +83,66 @@ public class McpAuthHeadersTests
             Assert.NotNull(headers);
             Assert.Equal("test-key-not-a-real-secret", headers!["X-Api-Key"]);
             Assert.Single(headers);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
+
+    [Fact]
+    public void TryResolve_EmptyEnvVarWithFlag_ReturnsFalseWithError()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, "");
+
+            var ok = McpAuthHeaders.TryResolve("X-Api-Key", out var headers, out var error);
+
+            Assert.False(ok);
+            Assert.Null(headers);
+            Assert.Contains("MCP_AUTH_TOKEN", error);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
+
+    [Fact]
+    public void TryResolve_InvalidHeaderName_ReturnsFalseWithoutLeakingToken()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, "Bearer super-secret-token-value");
+
+            var ok = McpAuthHeaders.TryResolve("X-Api Key", out var headers, out var error);
+
+            Assert.False(ok);
+            Assert.Null(headers);
+            Assert.DoesNotContain("super-secret-token-value", error);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, original);
+        }
+    }
+
+    [Fact]
+    public void TryResolve_TokenWithControlCharacter_ReturnsFalseWithoutLeakingToken()
+    {
+        var original = Environment.GetEnvironmentVariable(McpAuthHeaders.EnvVarName);
+        try
+        {
+            Environment.SetEnvironmentVariable(McpAuthHeaders.EnvVarName, "secret-token\nX-Injected: yes");
+
+            var ok = McpAuthHeaders.TryResolve(null, out var headers, out var error);
+
+            Assert.False(ok);
+            Assert.Null(headers);
+            Assert.DoesNotContain("secret-token", error);
         }
         finally
         {
