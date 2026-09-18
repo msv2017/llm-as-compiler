@@ -1,0 +1,55 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "email": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "tier": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "workflow": {
+    "name": "GetCustomerLoyaltyTierByEmail",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "crm.getCustomerByEmail",
+        "arguments": {
+          "email": {
+            "kind": "path",
+            "path": "input.email"
+          }
+        },
+        "id": "customer"
+      },
+      {
+        "kind": "call",
+        "tool": "crm.getLoyaltyTier",
+        "arguments": {
+          "customerId": {
+            "kind": "path",
+            "path": "customer.id"
+          }
+        },
+        "id": "loyaltyTier"
+      }
+    ],
+    "return": {
+      "tier": {
+        "kind": "path",
+        "path": "loyaltyTier.tier"
+      }
+    }
+  }
+}
