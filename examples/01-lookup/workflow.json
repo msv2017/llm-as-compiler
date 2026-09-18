@@ -1,0 +1,44 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "customerName": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "workflow": {
+    "name": "Lookup Customer Name by ID",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "crm.getCustomerById",
+        "arguments": {
+          "id": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "customer"
+      }
+    ],
+    "return": {
+      "customerName": {
+        "kind": "path",
+        "path": "customer.name"
+      }
+    }
+  }
+}

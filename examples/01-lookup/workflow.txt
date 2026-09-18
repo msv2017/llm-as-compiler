@@ -1,0 +1,2 @@
+  call customer = crm.getCustomerById(id: input.customerId)
+  return { customerName: customer.name }

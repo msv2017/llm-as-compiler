@@ -1,0 +1,34 @@
+{
+  "prompt": "Given a customer id, list up to 20 of the customer's active subscriptions. For each subscription in the list, send a renewal reminder. Count the subscription list and return how many reminders were sent.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "remindersSent": { "kind": "primitive", "name": "Int" }
+  } },
+  "tools": [
+    {
+      "name": "subscriptions.listActive",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "list", "elementType": { "kind": "object", "name": "Subscription", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "name": { "kind": "primitive", "name": "String" }
+      } } }
+    },
+    {
+      "name": "subscriptions.sendRenewalReminder",
+      "effect": "Write",
+      "retry": "Never",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "subscriptionId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "object", "name": "Ack", "fields": {
+        "sent": { "kind": "primitive", "name": "Bool" }
+      } }
+    }
+  ]
+}

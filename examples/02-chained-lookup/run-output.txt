@@ -1,0 +1,6 @@
+Status: Success
+
+Output:
+{
+  "tier": "GOLD"
+}

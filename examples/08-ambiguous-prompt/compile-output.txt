@@ -1,0 +1,4 @@
+Status: Uncompilable
+
+Unresolved:
+  - [S203] The prompt requests finding the 'most appropriate account', but does not specify any criteria or rules to determine which account is most appropriate when multiple accounts exist. No such criteria can be inferred from the prompt, input type, output type, or tool schema. Therefore, the selection of the 'most appropriate' account cannot be resolved deterministically.

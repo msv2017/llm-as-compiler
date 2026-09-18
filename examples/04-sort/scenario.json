@@ -1,0 +1,30 @@
+{
+  "prompt": "Given a customer id, list their invoices sorted by amount, highest first, and return the sorted list.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "invoices": { "kind": "list", "elementType": { "kind": "object", "name": "Invoice", "fields": {
+      "id": { "kind": "primitive", "name": "String" },
+      "amount": { "kind": "primitive", "name": "Decimal" },
+      "status": { "kind": "primitive", "name": "String" },
+      "createdAt": { "kind": "primitive", "name": "DateTime" }
+    } } }
+  } },
+  "tools": [
+    {
+      "name": "billing.listInvoices",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "list", "elementType": { "kind": "object", "name": "Invoice", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "amount": { "kind": "primitive", "name": "Decimal" },
+        "status": { "kind": "primitive", "name": "String" },
+        "createdAt": { "kind": "primitive", "name": "DateTime" }
+      } } }
+    }
+  ]
+}

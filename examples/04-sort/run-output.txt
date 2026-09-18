@@ -1,0 +1,25 @@
+Status: Success
+
+Output:
+{
+  "invoices": [
+    {
+      "id": "inv-b",
+      "amount": 300.00,
+      "status": "PAID",
+      "createdAt": "2026-02-01T00:00:00"
+    },
+    {
+      "id": "inv-c",
+      "amount": 125.50,
+      "status": "UNPAID",
+      "createdAt": "2026-03-01T00:00:00"
+    },
+    {
+      "id": "inv-a",
+      "amount": 50.00,
+      "status": "UNPAID",
+      "createdAt": "2026-01-01T00:00:00"
+    }
+  ]
+}

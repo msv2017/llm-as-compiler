@@ -1,0 +1,3 @@
+  call invoices = billing.listInvoices(customerId: input.customerId)
+  sort sortedInvoices = invoices.orderBy(invoice => invoice.amount, Descending)
+  return { invoices: sortedInvoices }

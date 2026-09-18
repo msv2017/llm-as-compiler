@@ -1,0 +1,35 @@
+{
+  "prompt": "Given a customer's email, find the customer, then look up their loyalty tier using the customer's id. Return the tier.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "email": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "tier": { "kind": "primitive", "name": "String" }
+  } },
+  "tools": [
+    {
+      "name": "crm.getCustomerByEmail",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "email": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "object", "name": "Customer", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "name": { "kind": "primitive", "name": "String" },
+        "email": { "kind": "primitive", "name": "String" }
+      } }
+    },
+    {
+      "name": "crm.getLoyaltyTier",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "object", "name": "LoyaltyTierResult", "fields": {
+        "tier": { "kind": "primitive", "name": "String" }
+      } }
+    }
+  ]
+}

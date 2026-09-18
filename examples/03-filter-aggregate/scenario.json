@@ -1,0 +1,25 @@
+{
+  "prompt": "Given a customer id, list their invoices, keep only the ones with status UNPAID, and return the sum of their amounts as the outstanding balance.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "outstanding": { "kind": "primitive", "name": "Decimal" }
+  } },
+  "tools": [
+    {
+      "name": "billing.listInvoices",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "list", "elementType": { "kind": "object", "name": "Invoice", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "amount": { "kind": "primitive", "name": "Decimal" },
+        "status": { "kind": "primitive", "name": "String" },
+        "createdAt": { "kind": "primitive", "name": "DateTime" }
+      } } }
+    }
+  ]
+}

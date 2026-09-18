@@ -18,6 +18,7 @@ something deterministic, compilation fails instead of guessing.
 ## Contents
 
 - [Example](#example)
+- [Examples](#examples)
 - [How it works](#how-it-works)
 - [Project layout](#project-layout)
 - [Getting started](#getting-started)
@@ -49,6 +50,12 @@ Workflow:
 
 One LLM call produced that. Run it again tomorrow and it's the same workflow — no further LLM calls
 involved. Scenario-file format and full CLI usage below, under [Using Flow.Cli](#using-flowcli).
+
+## Examples
+
+The `examples/` folder is a second, larger demonstration: a real MCP server plus eight scenarios,
+each showing one distinct part of the DSL end-to-end (compile *and* execute), not just the one
+lookup shown above. See [examples/README.md](examples/README.md).
 
 ## How it works
 
@@ -106,10 +113,13 @@ rather than executing something nobody actually asked for.
 | `src/Flow.Cli` | Console app with three subcommands: `compile` (a JSON scenario file → workflow, optionally saved to a file), `run` (a saved workflow → executed against a live MCP server), and `scaffold` (discover a live MCP server's tools into a scenario file's `tools` array) |
 | `tests/*.Tests` | Deterministic unit tests (scripted-fake model responses; no network) |
 | `tests/Flow.IntegrationTests` | Live tests against the real OpenAI/Anthropic APIs, skipped automatically when the relevant API key isn't set |
+| `examples/` | A runnable demo MCP server plus eight end-to-end example scenarios (see [examples/README.md](examples/README.md)) |
 
 ## Getting started
 
-Requires the .NET 8 SDK or later.
+Requires the .NET 9 SDK (the `src/`/`tests/` projects target `net8.0`, but
+`examples/Flow.Examples.McpServer` targets `net9.0` — see [examples/README.md](examples/README.md)
+— so building the full solution via `dotnet build` needs the 9 SDK).
 
 ```bash
 dotnet build

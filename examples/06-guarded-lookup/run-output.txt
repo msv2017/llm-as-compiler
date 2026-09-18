@@ -1,0 +1,7 @@
+Status: Success
+
+Output:
+{
+  "name": "Priya Nair",
+  "email": "priya@example.com"
+}
