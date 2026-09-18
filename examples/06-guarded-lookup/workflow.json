@@ -1,0 +1,117 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "name": {
+        "kind": "primitive",
+        "name": "String"
+      },
+      "email": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "workflow": {
+    "name": "GetCustomerNameEmail",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "crm.findCustomerById",
+        "arguments": {
+          "id": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "customer"
+      },
+      {
+        "kind": "if",
+        "condition": {
+          "kind": "binary",
+          "left": {
+            "kind": "path",
+            "path": "customer"
+          },
+          "operator": "NotEqual",
+          "right": {
+            "kind": "constant",
+            "source": "PROMPT",
+            "detail": "Check if customer is not null before accessing its fields to avoid null access"
+          }
+        },
+        "trueBranch": {
+          "nodes": [],
+          "value": {
+            "kind": "object",
+            "fields": {
+              "name": {
+                "kind": "path",
+                "path": "customer.name"
+              },
+              "email": {
+                "kind": "path",
+                "path": "customer.email"
+              }
+            }
+          }
+        },
+        "falseBranch": {
+          "nodes": [
+            {
+              "kind": "assert",
+              "condition": {
+                "kind": "constant",
+                "value": false,
+                "source": "PROMPT",
+                "detail": "Fail with CUSTOMER_NOT_FOUND if customer is null as per prompt"
+              },
+              "failureCode": "CUSTOMER_NOT_FOUND",
+              "id": "failIfNull"
+            }
+          ],
+          "value": {
+            "kind": "object",
+            "fields": {
+              "name": {
+                "kind": "constant",
+                "value": "",
+                "source": "SYSTEM_POLICY",
+                "detail": "Empty string because output requires name string even on failure branch"
+              },
+              "email": {
+                "kind": "constant",
+                "value": "",
+                "source": "SYSTEM_POLICY",
+                "detail": "Empty string because output requires email string even on failure branch"
+              }
+            }
+          }
+        },
+        "id": "customerNotNullCheck"
+      }
+    ],
+    "return": {
+      "name": {
+        "kind": "path",
+        "path": "customerNotNullCheck.name"
+      },
+      "email": {
+        "kind": "path",
+        "path": "customerNotNullCheck.email"
+      }
+    }
+  }
+}

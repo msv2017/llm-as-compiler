@@ -1,0 +1,7 @@
+  call customer = crm.findCustomerById(id: input.customerId)
+  if (customer != null):
+    => { name: customer.name, email: customer.email }
+  else:
+    assert false else CUSTOMER_NOT_FOUND
+    => { name: "", email: "" }
+  return { name: customerNotNullCheck.name, email: customerNotNullCheck.email }

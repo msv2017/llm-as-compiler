@@ -1,0 +1,25 @@
+{
+  "prompt": "Given a customer id, look up the customer. If the customer is null, fail with CUSTOMER_NOT_FOUND; otherwise, using the customer found in that same check, return their name and email.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "name": { "kind": "primitive", "name": "String" },
+    "email": { "kind": "primitive", "name": "String" }
+  } },
+  "tools": [
+    {
+      "name": "crm.findCustomerById",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "id": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "optional", "innerType": { "kind": "object", "name": "Customer", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "name": { "kind": "primitive", "name": "String" },
+        "email": { "kind": "primitive", "name": "String" }
+      } } }
+    }
+  ]
+}
