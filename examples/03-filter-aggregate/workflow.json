@@ -1,0 +1,81 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "outstanding": {
+        "kind": "primitive",
+        "name": "Decimal"
+      }
+    }
+  },
+  "workflow": {
+    "name": "CalculateOutstandingBalance",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "billing.listInvoices",
+        "arguments": {
+          "customerId": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "listInvoices"
+      },
+      {
+        "kind": "filter",
+        "source": {
+          "kind": "path",
+          "path": "listInvoices"
+        },
+        "parameterName": "invoice",
+        "predicate": {
+          "kind": "binary",
+          "left": {
+            "kind": "path",
+            "path": "invoice.status"
+          },
+          "operator": "Equal",
+          "right": {
+            "kind": "constant",
+            "value": "UNPAID",
+            "source": "PROMPT",
+            "detail": "Keep only invoices with status UNPAID as stated in the prompt"
+          }
+        },
+        "id": "filterUnpaid"
+      },
+      {
+        "kind": "aggregate",
+        "source": {
+          "kind": "path",
+          "path": "filterUnpaid"
+        },
+        "operation": "Sum",
+        "parameterName": "invoice",
+        "selector": {
+          "kind": "path",
+          "path": "invoice.amount"
+        },
+        "id": "sumAmounts"
+      }
+    ],
+    "return": {
+      "outstanding": {
+        "kind": "path",
+        "path": "sumAmounts"
+      }
+    }
+  }
+}

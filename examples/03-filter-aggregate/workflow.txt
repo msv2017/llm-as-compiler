@@ -1,0 +1,4 @@
+  call listInvoices = billing.listInvoices(customerId: input.customerId)
+  filter filterUnpaid = listInvoices.where(invoice => (invoice.status == "UNPAID"))
+  aggregate sumAmounts = filterUnpaid.Sum(invoice => invoice.amount)
+  return { outstanding: sumAmounts }
