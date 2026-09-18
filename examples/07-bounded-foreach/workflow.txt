@@ -1,0 +1,8 @@
+  call listSubs = subscriptions.listActive(customerId: input.customerId)
+  foreach subscription in listSubs (limit 20) -> sendReminders:
+    call sendReminder = subscriptions.sendRenewalReminder(subscriptionId: subscription.id)
+    => sendReminder.sent
+  aggregate countSent = sendReminders.Count( => true)
+  filter filterSent = sendReminders.where(sentResult => sentResult)
+  aggregate countTrue = filterSent.Count
+  return { remindersSent: countTrue }

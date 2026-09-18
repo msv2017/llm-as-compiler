@@ -1,0 +1,108 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "remindersSent": {
+        "kind": "primitive",
+        "name": "Int"
+      }
+    }
+  },
+  "workflow": {
+    "name": "Send Renewal Reminders for Active Subscriptions",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "subscriptions.listActive",
+        "arguments": {
+          "customerId": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "listSubs"
+      },
+      {
+        "kind": "foreach",
+        "source": {
+          "kind": "path",
+          "path": "listSubs"
+        },
+        "parameterName": "subscription",
+        "limit": 20,
+        "body": [
+          {
+            "kind": "call",
+            "tool": "subscriptions.sendRenewalReminder",
+            "arguments": {
+              "subscriptionId": {
+                "kind": "path",
+                "path": "subscription.id"
+              }
+            },
+            "id": "sendReminder"
+          }
+        ],
+        "bodyValue": {
+          "kind": "path",
+          "path": "sendReminder.sent"
+        },
+        "id": "sendReminders"
+      },
+      {
+        "kind": "aggregate",
+        "source": {
+          "kind": "path",
+          "path": "sendReminders"
+        },
+        "operation": "Count",
+        "selector": {
+          "kind": "constant",
+          "value": true,
+          "source": "PROMPT",
+          "detail": "Count all reminders sent which are true"
+        },
+        "id": "countSent"
+      },
+      {
+        "kind": "filter",
+        "source": {
+          "kind": "path",
+          "path": "sendReminders"
+        },
+        "parameterName": "sentResult",
+        "predicate": {
+          "kind": "path",
+          "path": "sentResult"
+        },
+        "id": "filterSent"
+      },
+      {
+        "kind": "aggregate",
+        "source": {
+          "kind": "path",
+          "path": "filterSent"
+        },
+        "operation": "Count",
+        "id": "countTrue"
+      }
+    ],
+    "return": {
+      "remindersSent": {
+        "kind": "path",
+        "path": "countTrue"
+      }
+    }
+  }
+}
