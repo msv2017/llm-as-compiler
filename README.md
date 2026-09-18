@@ -138,7 +138,14 @@ exercise anything.
   `.txt`; if `--save`'s path already ends in `.txt`, the derived name is `<path>.readable.txt`
   instead, so it doesn't overwrite the JSON file). That derived path isn't something you choose —
   if a file already exists there, it's silently overwritten — and if writing it fails, that's only
-  a warning; the JSON file and `compile`'s exit code are unaffected.
+  a warning; the JSON file and `compile`'s exit code are unaffected. For `--save workflow.json`,
+  `workflow.txt` holds just the node listing — no JSON, no status/assumptions wrapper — for example,
+  for the scenario behind the [Example](#example) above:
+
+  ```
+    call getCustomer = crm.getCustomerById(id: input.customerId)
+    return { customerName: getCustomer.name }
+  ```
 - `run` loads a workflow file previously written by `compile --save` and executes it against a
   live MCP server — no LLM calls, no scenario file needed at this stage.
 - `scaffold` discovers a live MCP server's tools and writes most of that scenario file for you (see
