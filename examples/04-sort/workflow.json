@@ -1,0 +1,79 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "invoices": {
+        "kind": "list",
+        "elementType": {
+          "kind": "object",
+          "name": "Invoice",
+          "fields": {
+            "id": {
+              "kind": "primitive",
+              "name": "String"
+            },
+            "amount": {
+              "kind": "primitive",
+              "name": "Decimal"
+            },
+            "status": {
+              "kind": "primitive",
+              "name": "String"
+            },
+            "createdAt": {
+              "kind": "primitive",
+              "name": "DateTime"
+            }
+          }
+        }
+      }
+    }
+  },
+  "workflow": {
+    "name": "ListInvoicesSortedByAmountDesc",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "billing.listInvoices",
+        "arguments": {
+          "customerId": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "invoices"
+      },
+      {
+        "kind": "sort",
+        "source": {
+          "kind": "path",
+          "path": "invoices"
+        },
+        "parameterName": "invoice",
+        "key": {
+          "kind": "path",
+          "path": "invoice.amount"
+        },
+        "direction": "DESCENDING",
+        "id": "sortedInvoices"
+      }
+    ],
+    "return": {
+      "invoices": {
+        "kind": "path",
+        "path": "sortedInvoices"
+      }
+    }
+  }
+}
