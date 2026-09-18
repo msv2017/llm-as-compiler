@@ -1,0 +1,37 @@
+{
+  "prompt": "Given a customer id, compute their outstanding balance as the sum of UNPAID invoice amounts. If the balance is less than 100, refund the oldest unpaid invoice by calling the refund tool with that invoice's id. Return whether a refund was made and the outstanding balance.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "refunded": { "kind": "primitive", "name": "Bool" },
+    "outstanding": { "kind": "primitive", "name": "Decimal" }
+  } },
+  "tools": [
+    {
+      "name": "billing.listInvoices",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "list", "elementType": { "kind": "object", "name": "Invoice", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "amount": { "kind": "primitive", "name": "Decimal" },
+        "status": { "kind": "primitive", "name": "String" },
+        "createdAt": { "kind": "primitive", "name": "DateTime" }
+      } } }
+    },
+    {
+      "name": "billing.createRefund",
+      "effect": "Write",
+      "retry": "Never",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "invoiceId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "object", "name": "Refund", "fields": {
+        "id": { "kind": "primitive", "name": "String" }
+      } }
+    }
+  ]
+}

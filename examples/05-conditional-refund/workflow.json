@@ -1,0 +1,240 @@
+{
+  "inputType": {
+    "kind": "object",
+    "name": "Request",
+    "fields": {
+      "customerId": {
+        "kind": "primitive",
+        "name": "String"
+      }
+    }
+  },
+  "outputType": {
+    "kind": "object",
+    "name": "Result",
+    "fields": {
+      "refunded": {
+        "kind": "primitive",
+        "name": "Bool"
+      },
+      "outstanding": {
+        "kind": "primitive",
+        "name": "Decimal"
+      }
+    }
+  },
+  "workflow": {
+    "name": "ComputeOutstandingAndRefundIfNeeded",
+    "nodes": [
+      {
+        "kind": "call",
+        "tool": "billing.listInvoices",
+        "arguments": {
+          "customerId": {
+            "kind": "path",
+            "path": "input.customerId"
+          }
+        },
+        "id": "listInvoices"
+      },
+      {
+        "kind": "filter",
+        "source": {
+          "kind": "path",
+          "path": "listInvoices"
+        },
+        "parameterName": "invoice",
+        "predicate": {
+          "kind": "binary",
+          "left": {
+            "kind": "path",
+            "path": "invoice.status"
+          },
+          "operator": "Equal",
+          "right": {
+            "kind": "constant",
+            "value": "UNPAID",
+            "source": "PROMPT",
+            "detail": "Filter invoices with status UNPAID to compute outstanding balance"
+          }
+        },
+        "id": "unpaidInvoices"
+      },
+      {
+        "kind": "aggregate",
+        "source": {
+          "kind": "path",
+          "path": "unpaidInvoices"
+        },
+        "operation": "Sum",
+        "parameterName": "invoice",
+        "selector": {
+          "kind": "path",
+          "path": "invoice.amount"
+        },
+        "id": "outstandingBalance"
+      },
+      {
+        "kind": "sort",
+        "source": {
+          "kind": "path",
+          "path": "unpaidInvoices"
+        },
+        "parameterName": "invoice",
+        "key": {
+          "kind": "path",
+          "path": "invoice.createdAt"
+        },
+        "direction": "ASCENDING",
+        "id": "oldestUnpaidSorted"
+      },
+      {
+        "kind": "aggregate",
+        "source": {
+          "kind": "path",
+          "path": "oldestUnpaidSorted"
+        },
+        "operation": "First",
+        "parameterName": "invoice",
+        "id": "oldestInvoice"
+      },
+      {
+        "kind": "if",
+        "condition": {
+          "kind": "binary",
+          "left": {
+            "kind": "path",
+            "path": "outstandingBalance"
+          },
+          "operator": "LessThan",
+          "right": {
+            "kind": "constant",
+            "value": 100,
+            "source": "PROMPT",
+            "detail": "Refund if outstanding balance is less than 100"
+          }
+        },
+        "trueBranch": {
+          "nodes": [
+            {
+              "kind": "if",
+              "condition": {
+                "kind": "binary",
+                "left": {
+                  "kind": "path",
+                  "path": "oldestInvoice"
+                },
+                "operator": "NotEqual",
+                "right": {
+                  "kind": "constant",
+                  "source": "SYSTEM_POLICY",
+                  "detail": "Invoice must exist to refund"
+                }
+              },
+              "trueBranch": {
+                "nodes": [
+                  {
+                    "kind": "call",
+                    "tool": "billing.createRefund",
+                    "arguments": {
+                      "invoiceId": {
+                        "kind": "path",
+                        "path": "oldestInvoice.id"
+                      }
+                    },
+                    "id": "createRefund"
+                  }
+                ],
+                "value": {
+                  "kind": "object",
+                  "fields": {
+                    "refunded": {
+                      "kind": "constant",
+                      "value": true,
+                      "source": "PROMPT",
+                      "detail": "Refund was made because outstanding balance \u003C 100"
+                    },
+                    "outstanding": {
+                      "kind": "path",
+                      "path": "outstandingBalance"
+                    }
+                  }
+                }
+              },
+              "falseBranch": {
+                "nodes": [],
+                "value": {
+                  "kind": "object",
+                  "fields": {
+                    "refunded": {
+                      "kind": "constant",
+                      "value": false,
+                      "source": "PROMPT",
+                      "detail": "No refund because no oldest invoice to refund"
+                    },
+                    "outstanding": {
+                      "kind": "path",
+                      "path": "outstandingBalance"
+                    }
+                  }
+                }
+              },
+              "id": "checkOldestInvoice"
+            },
+            {
+              "kind": "assert",
+              "condition": {
+                "kind": "binary",
+                "left": {
+                  "kind": "path",
+                  "path": "oldestInvoice"
+                },
+                "operator": "NotEqual",
+                "right": {
+                  "kind": "constant",
+                  "source": "SYSTEM_POLICY",
+                  "detail": "Invoice must exist to refund"
+                }
+              },
+              "failureCode": "NO_OLDEST_INVOICE_TO_REFUND",
+              "id": "ensureOldestInvoice"
+            }
+          ],
+          "value": {
+            "kind": "path",
+            "path": "checkOldestInvoice"
+          }
+        },
+        "falseBranch": {
+          "nodes": [],
+          "value": {
+            "kind": "object",
+            "fields": {
+              "refunded": {
+                "kind": "constant",
+                "value": false,
+                "source": "PROMPT",
+                "detail": "No refund because outstanding balance \u003E= 100"
+              },
+              "outstanding": {
+                "kind": "path",
+                "path": "outstandingBalance"
+              }
+            }
+          }
+        },
+        "id": "refundDecision"
+      }
+    ],
+    "return": {
+      "refunded": {
+        "kind": "path",
+        "path": "refundDecision.refunded"
+      },
+      "outstanding": {
+        "kind": "path",
+        "path": "refundDecision.outstanding"
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+  call listInvoices = billing.listInvoices(customerId: input.customerId)
+  filter unpaidInvoices = listInvoices.where(invoice => (invoice.status == "UNPAID"))
+  aggregate outstandingBalance = unpaidInvoices.Sum(invoice => invoice.amount)
+  sort oldestUnpaidSorted = unpaidInvoices.orderBy(invoice => invoice.createdAt, Ascending)
+  aggregate oldestInvoice = oldestUnpaidSorted.First
+  if (outstandingBalance < 100):
+    if (oldestInvoice != null):
+      call createRefund = billing.createRefund(invoiceId: oldestInvoice.id)
+      => { refunded: true, outstanding: outstandingBalance }
+    else:
+      => { refunded: false, outstanding: outstandingBalance }
+    assert (oldestInvoice != null) else NO_OLDEST_INVOICE_TO_REFUND
+    => checkOldestInvoice
+  else:
+    => { refunded: false, outstanding: outstandingBalance }
+  return { refunded: refundDecision.refunded, outstanding: refundDecision.outstanding }
