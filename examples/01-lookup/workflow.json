@@ -20,7 +20,7 @@
     }
   },
   "workflow": {
-    "name": "LookupCustomerNameById",
+    "name": "Lookup Customer Name by ID",
     "nodes": [
       {
         "kind": "call",
@@ -31,13 +31,13 @@
             "path": "input.customerId"
           }
         },
-        "id": "lookupCustomer"
+        "id": "customer"
       }
     ],
     "return": {
       "customerName": {
         "kind": "path",
-        "path": "lookupCustomer.name"
+        "path": "customer.name"
       }
     }
   }

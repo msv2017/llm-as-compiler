@@ -20,7 +20,7 @@
     }
   },
   "workflow": {
-    "name": "GetCustomerLoyaltyTierByEmail",
+    "name": "GetLoyaltyTierByEmail",
     "nodes": [
       {
         "kind": "call",
@@ -42,13 +42,13 @@
             "path": "customer.id"
           }
         },
-        "id": "loyaltyTier"
+        "id": "tierResult"
       }
     ],
     "return": {
       "tier": {
         "kind": "path",
-        "path": "loyaltyTier.tier"
+        "path": "tierResult.tier"
       }
     }
   }

@@ -24,7 +24,7 @@
     }
   },
   "workflow": {
-    "name": "ComputeOutstandingAndRefundIfNeeded",
+    "name": "CalculateOutstandingAndRefundIfNeeded",
     "nodes": [
       {
         "kind": "call",
@@ -55,7 +55,7 @@
             "kind": "constant",
             "value": "UNPAID",
             "source": "PROMPT",
-            "detail": "Filter invoices with status UNPAID to compute outstanding balance"
+            "detail": "Filter unpaid invoices as instructed in prompt"
           }
         },
         "id": "unpaidInvoices"
@@ -111,7 +111,7 @@
             "kind": "constant",
             "value": 100,
             "source": "PROMPT",
-            "detail": "Refund if outstanding balance is less than 100"
+            "detail": "Refund if balance less than 100 as instructed in prompt"
           }
         },
         "trueBranch": {
@@ -128,7 +128,7 @@
                 "right": {
                   "kind": "constant",
                   "source": "SYSTEM_POLICY",
-                  "detail": "Invoice must exist to refund"
+                  "detail": "Check oldestInvoice is not null before refunding"
                 }
               },
               "trueBranch": {
@@ -142,85 +142,40 @@
                         "path": "oldestInvoice.id"
                       }
                     },
-                    "id": "createRefund"
+                    "id": "refund"
                   }
                 ],
                 "value": {
-                  "kind": "object",
-                  "fields": {
-                    "refunded": {
-                      "kind": "constant",
-                      "value": true,
-                      "source": "PROMPT",
-                      "detail": "Refund was made because outstanding balance \u003C 100"
-                    },
-                    "outstanding": {
-                      "kind": "path",
-                      "path": "outstandingBalance"
-                    }
-                  }
+                  "kind": "constant",
+                  "value": true,
+                  "source": "PROMPT",
+                  "detail": "Refund made because refund was issued"
                 }
               },
               "falseBranch": {
                 "nodes": [],
                 "value": {
-                  "kind": "object",
-                  "fields": {
-                    "refunded": {
-                      "kind": "constant",
-                      "value": false,
-                      "source": "PROMPT",
-                      "detail": "No refund because no oldest invoice to refund"
-                    },
-                    "outstanding": {
-                      "kind": "path",
-                      "path": "outstandingBalance"
-                    }
-                  }
-                }
-              },
-              "id": "checkOldestInvoice"
-            },
-            {
-              "kind": "assert",
-              "condition": {
-                "kind": "binary",
-                "left": {
-                  "kind": "path",
-                  "path": "oldestInvoice"
-                },
-                "operator": "NotEqual",
-                "right": {
                   "kind": "constant",
-                  "source": "SYSTEM_POLICY",
-                  "detail": "Invoice must exist to refund"
+                  "value": false,
+                  "source": "PROMPT",
+                  "detail": "No refund because no oldest invoice present"
                 }
               },
-              "failureCode": "NO_OLDEST_INVOICE_TO_REFUND",
-              "id": "ensureOldestInvoice"
+              "id": "oldestInvoiceCheck"
             }
           ],
           "value": {
             "kind": "path",
-            "path": "checkOldestInvoice"
+            "path": "oldestInvoiceCheck"
           }
         },
         "falseBranch": {
           "nodes": [],
           "value": {
-            "kind": "object",
-            "fields": {
-              "refunded": {
-                "kind": "constant",
-                "value": false,
-                "source": "PROMPT",
-                "detail": "No refund because outstanding balance \u003E= 100"
-              },
-              "outstanding": {
-                "kind": "path",
-                "path": "outstandingBalance"
-              }
-            }
+            "kind": "constant",
+            "value": false,
+            "source": "PROMPT",
+            "detail": "No refund because balance not less than 100"
           }
         },
         "id": "refundDecision"
@@ -229,11 +184,11 @@
     "return": {
       "refunded": {
         "kind": "path",
-        "path": "refundDecision.refunded"
+        "path": "refundDecision"
       },
       "outstanding": {
         "kind": "path",
-        "path": "refundDecision.outstanding"
+        "path": "outstandingBalance"
       }
     }
   }

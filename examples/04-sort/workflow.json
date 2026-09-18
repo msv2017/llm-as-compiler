@@ -41,7 +41,7 @@
     }
   },
   "workflow": {
-    "name": "ListInvoicesSortedByAmountDesc",
+    "name": "ListInvoicesSortedByAmountDescending",
     "nodes": [
       {
         "kind": "call",

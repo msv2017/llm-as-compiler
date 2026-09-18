@@ -5,12 +5,11 @@
   aggregate oldestInvoice = oldestUnpaidSorted.First
   if (outstandingBalance < 100):
     if (oldestInvoice != null):
-      call createRefund = billing.createRefund(invoiceId: oldestInvoice.id)
-      => { refunded: true, outstanding: outstandingBalance }
+      call refund = billing.createRefund(invoiceId: oldestInvoice.id)
+      => true
     else:
-      => { refunded: false, outstanding: outstandingBalance }
-    assert (oldestInvoice != null) else NO_OLDEST_INVOICE_TO_REFUND
-    => checkOldestInvoice
+      => false
+    => oldestInvoiceCheck
   else:
-    => { refunded: false, outstanding: outstandingBalance }
-  return { refunded: refundDecision.refunded, outstanding: refundDecision.outstanding }
+    => false
+  return { refunded: refundDecision, outstanding: outstandingBalance }

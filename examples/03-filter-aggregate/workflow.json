@@ -51,7 +51,7 @@
             "kind": "constant",
             "value": "UNPAID",
             "source": "PROMPT",
-            "detail": "Keep only invoices with status UNPAID as stated in the prompt"
+            "detail": "Prompt requires to keep only invoices with status UNPAID"
           }
         },
         "id": "filterUnpaid"
