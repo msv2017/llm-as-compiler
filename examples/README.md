@@ -5,7 +5,10 @@ A runnable, end-to-end demonstration of the whole pipeline: a small MCP server
 demonstrating one distinct part of the DSL.
 
 Run `./regenerate.sh` (from this directory, or `examples/regenerate.sh` from the repo root) with
-`OPENAI_API_KEY` set to reproduce every compiled workflow and execution result from scratch.
+`OPENAI_API_KEY` set to reproduce every compiled workflow and execution result from scratch. The
+script is safely re-runnable, and an occasional `Uncompilable` result on one of the harder examples
+is expected LLM-compiler variance, not a script bug — it aborts deliberately rather than silently
+overwriting a working example with a failed one.
 
 | # | Example | DSL feature |
 |---|---|---|
@@ -14,7 +17,7 @@ Run `./regenerate.sh` (from this directory, or `examples/regenerate.sh` from the
 | 3 | [03-filter-aggregate](03-filter-aggregate/) | `Filter`, `Aggregate` |
 | 4 | [04-sort](04-sort/) | `Sort` |
 | 5 | [05-conditional-refund](05-conditional-refund/) | `If` |
-| 6 | [06-guarded-lookup](06-guarded-lookup/) | `Assert` |
+| 6 | [06-guarded-lookup](06-guarded-lookup/) | `Assert` (+ `If` guard) |
 | 7 | [07-bounded-foreach](07-bounded-foreach/) | `Foreach` |
 | 8 | [08-ambiguous-prompt](08-ambiguous-prompt/) | Ambiguity detection (`Unresolved`) |
 
