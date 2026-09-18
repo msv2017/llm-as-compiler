@@ -1,0 +1,24 @@
+{
+  "prompt": "Given a customer id, find the most appropriate account for this customer and return its id.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "accountId": { "kind": "primitive", "name": "String" }
+  } },
+  "tools": [
+    {
+      "name": "crm.listAccounts",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "customerId": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "list", "elementType": { "kind": "object", "name": "Account", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "type": { "kind": "primitive", "name": "String" },
+        "status": { "kind": "primitive", "name": "String" }
+      } } }
+    }
+  ]
+}
