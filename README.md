@@ -18,6 +18,7 @@ something deterministic, compilation fails instead of guessing.
 ## Contents
 
 - [Example](#example)
+- [Examples](#examples)
 - [How it works](#how-it-works)
 - [Project layout](#project-layout)
 - [Getting started](#getting-started)
@@ -49,6 +50,12 @@ Workflow:
 
 One LLM call produced that. Run it again tomorrow and it's the same workflow — no further LLM calls
 involved. Scenario-file format and full CLI usage below, under [Using Flow.Cli](#using-flowcli).
+
+## Examples
+
+The `examples/` folder is a second, larger demonstration: a real MCP server plus eight scenarios,
+each showing one distinct part of the DSL end-to-end (compile *and* execute), not just the one
+lookup shown above. See [examples/README.md](examples/README.md).
 
 ## How it works
 
