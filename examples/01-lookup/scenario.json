@@ -1,0 +1,24 @@
+{
+  "prompt": "Given a customer id, look up and return the customer's name.",
+  "inputType": { "kind": "object", "name": "Request", "fields": {
+    "customerId": { "kind": "primitive", "name": "String" }
+  } },
+  "outputType": { "kind": "object", "name": "Result", "fields": {
+    "customerName": { "kind": "primitive", "name": "String" }
+  } },
+  "tools": [
+    {
+      "name": "crm.getCustomerById",
+      "effect": "Read",
+      "retry": "Safe",
+      "inputType": { "kind": "object", "name": "In", "fields": {
+        "id": { "kind": "primitive", "name": "String" }
+      } },
+      "outputType": { "kind": "object", "name": "Customer", "fields": {
+        "id": { "kind": "primitive", "name": "String" },
+        "name": { "kind": "primitive", "name": "String" },
+        "email": { "kind": "primitive", "name": "String" }
+      } }
+    }
+  ]
+}
