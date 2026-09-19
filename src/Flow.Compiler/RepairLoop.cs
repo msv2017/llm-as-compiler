@@ -45,7 +45,8 @@ public sealed class RepairLoop
             string? conversionError = null;
             try
             {
-                workflow = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
+                var converted = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
+                workflow = DeadNodeEliminator.Eliminate(converted, tools);
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {

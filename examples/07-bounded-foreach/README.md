@@ -11,3 +11,7 @@ never used — the actual returned count comes from a separate `filterSent` → 
 only counts reminders that succeeded. `remindersSent: 3` is correct either way; this is just
 harmless LLM-compiler-output redundancy, left as-is here since re-compiling to remove it isn't free
 of risk (see the folder's git history if you're curious what that risk looks like in practice).
+`DeadNodeEliminator` (added later in this repo's history) would now prune a redundant node like
+`countSent` automatically on any future compile — this committed example simply predates that pass,
+and the last recompile attempt hit an unrelated regression before a fresh, already-pruned artifact
+could be adopted.
