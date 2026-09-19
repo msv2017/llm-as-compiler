@@ -96,7 +96,7 @@ call itself is removed.
 |---|---|
 | `ToolResolutionValidator` | every called tool exists in the catalog |
 | `DataflowValidator` | every referenced name is actually defined by a prior node or `input` |
-| `TypeValidator` | structural type compatibility, including unresolvable paths (`T104`) |
+| `TypeValidator` | structural type compatibility, including unresolvable paths (`T104`) and a selector on `Count`/`First` (`T102`) — those two operations never evaluate one, so it would silently be ignored at runtime |
 | `NullabilityValidator` | optional values are proven non-null (via an `if` node's own bare `!= null`/`== null` condition) before being dereferenced |
 | `OutputValidator` | the workflow's `return` actually satisfies the declared output type |
 | `BoundednessValidator` | loops (`foreach`) carry an explicit, finite iteration limit |

@@ -124,6 +124,21 @@ public sealed class TypeValidator : IWorkflowValidationPass
 
                 case AggregateNode aggregateNode:
                 {
+                    // Count/First never evaluate Selector at runtime (WorkflowExecutor.cs) -- only Sum
+                    // does. A Selector on Count/First type-checks and looks like a conditional count/pick,
+                    // but is silently ignored, producing a workflow whose behavior doesn't match what it
+                    // appears to say. Reject it here instead of letting it compile.
+                    if (aggregateNode.Operation is AggregateOperation.Count or AggregateOperation.First
+                        && aggregateNode.Selector is not null)
+                    {
+                        diagnostics.Add(new ValidationDiagnostic(
+                            "T102",
+                            $"aggregate '{aggregateNode.Id}': a selector on '{aggregateNode.Operation}' is never evaluated " +
+                            "and is silently ignored at runtime -- remove it, or use Filter first if you need a " +
+                            "conditional count/pick.",
+                            aggregateNode.Id));
+                    }
+
                     var sourceType = ResolveType(aggregateNode.Source, inputType, nodeOutputTypes);
                     if (sourceType is ListType listType)
                     {

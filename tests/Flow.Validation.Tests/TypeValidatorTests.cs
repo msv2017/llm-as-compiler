@@ -107,4 +107,102 @@ public class TypeValidatorTests
 
         Assert.Contains(diagnostics, d => d.Code == "T104" && d.NodeId == "refund");
     }
+
+    [Fact]
+    public void CountAggregateWithSelector_ProducesT102()
+    {
+        // WorkflowExecutor's Count case never evaluates Selector -- it silently behaves like a plain
+        // list-length count regardless of what the selector says. This exact shape (Count with a
+        // selector) was found in a real compiled workflow (examples/07-bounded-foreach) before this
+        // check existed.
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String });
+        var listInvoices = new CallNode("invoices", "billing.listInvoices", new Dictionary<string, FlowExpression>());
+        var count = new AggregateNode("count", new PathExpression("invoices"), AggregateOperation.Count, "x",
+            new ConstantExpression(true, new ConstantProvenance(ConstantProvenanceKind.HandWritten)));
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["count"] = new PathExpression("count") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["count"] = PrimitiveType.Int });
+        var workflow = new WorkflowDefinition("Test", inputType, outputType, new WorkflowNode[] { listInvoices, count }, returnNode);
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(invoiceType), ToolEffect.Read, ToolRetryPolicy.Safe)
+        });
+
+        var diagnostics = new TypeValidator().Validate(workflow, tools);
+
+        Assert.Contains(diagnostics, d => d.Code == "T102" && d.NodeId == "count");
+    }
+
+    [Fact]
+    public void FirstAggregateWithSelector_ProducesT102()
+    {
+        // Same gap as Count: WorkflowExecutor's First case never evaluates Selector either.
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String });
+        var listInvoices = new CallNode("invoices", "billing.listInvoices", new Dictionary<string, FlowExpression>());
+        var first = new AggregateNode("first", new PathExpression("invoices"), AggregateOperation.First, "x",
+            new ConstantExpression(true, new ConstantProvenance(ConstantProvenanceKind.HandWritten)));
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["count"] = new PathExpression("invoices") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["count"] = new ListType(invoiceType) });
+        var workflow = new WorkflowDefinition("Test", inputType, outputType, new WorkflowNode[] { listInvoices, first }, returnNode);
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(invoiceType), ToolEffect.Read, ToolRetryPolicy.Safe)
+        });
+
+        var diagnostics = new TypeValidator().Validate(workflow, tools);
+
+        Assert.Contains(diagnostics, d => d.Code == "T102" && d.NodeId == "first");
+    }
+
+    [Fact]
+    public void SumAggregateWithSelector_ProducesNoT102()
+    {
+        // Sum is the one operation that genuinely evaluates its selector -- must not be flagged.
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType> { ["amount"] = PrimitiveType.Decimal });
+        var listInvoices = new CallNode("invoices", "billing.listInvoices", new Dictionary<string, FlowExpression>());
+        var sum = new AggregateNode("total", new PathExpression("invoices"), AggregateOperation.Sum, "x", new PathExpression("x.amount"));
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["total"] = new PathExpression("total") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["total"] = PrimitiveType.Decimal });
+        var workflow = new WorkflowDefinition("Test", inputType, outputType, new WorkflowNode[] { listInvoices, sum }, returnNode);
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(invoiceType), ToolEffect.Read, ToolRetryPolicy.Safe)
+        });
+
+        var diagnostics = new TypeValidator().Validate(workflow, tools);
+
+        Assert.DoesNotContain(diagnostics, d => d.Code == "T102");
+    }
+
+    [Fact]
+    public void CountAggregateWithoutSelector_ProducesNoT102()
+    {
+        // The correct, already-working pattern (e.g. examples/07-bounded-foreach's countTrue node)
+        // must not regress.
+        var invoiceType = new ObjectType("Invoice", new Dictionary<string, FlowType> { ["id"] = PrimitiveType.String });
+        var listInvoices = new CallNode("invoices", "billing.listInvoices", new Dictionary<string, FlowExpression>());
+        var count = new AggregateNode("count", new PathExpression("invoices"), AggregateOperation.Count, null, null);
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["count"] = new PathExpression("count") });
+        var inputType = new ObjectType("Request", new Dictionary<string, FlowType>());
+        var outputType = new ObjectType("Result", new Dictionary<string, FlowType> { ["count"] = PrimitiveType.Int });
+        var workflow = new WorkflowDefinition("Test", inputType, outputType, new WorkflowNode[] { listInvoices, count }, returnNode);
+        var tools = new ToolCatalog(new[]
+        {
+            new ToolDefinition("billing.listInvoices",
+                new ObjectType("In", new Dictionary<string, FlowType>()),
+                new ListType(invoiceType), ToolEffect.Read, ToolRetryPolicy.Safe)
+        });
+
+        var diagnostics = new TypeValidator().Validate(workflow, tools);
+
+        Assert.DoesNotContain(diagnostics, d => d.Code == "T102");
+    }
 }
