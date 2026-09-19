@@ -13,3 +13,7 @@ either way, but only the `filterSent`/`countTrue` path is wired to the output. T
 of LLM-compiler-output redundancy discussed elsewhere in this repo — harmless, but not re-compiled
 away here (a re-run produced a workflow that traded this away for a different regression: it
 replaced the per-iteration success flag with a hardcoded constant, so the artifact was kept as-is).
+`DeadNodeEliminator` (added later in this branch) would now prune a redundant node like `countSent`
+automatically on any future compile; this committed example simply predates that pass, and the last
+recompile attempt above hit the unrelated regression before a fresh, already-pruned artifact could be
+adopted.

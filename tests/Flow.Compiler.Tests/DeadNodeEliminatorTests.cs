@@ -218,4 +218,68 @@ public class DeadNodeEliminatorTests
 
         Assert.Equal(new[] { "outerValue", "guard" }, pruned.Nodes.Select(n => n.Id));
     }
+
+    [Fact]
+    public void KeepsOuterScopeNodeReferencedFromInsideAnIfNestedInAForeach()
+    {
+        // Three levels deep: outer scope -> ForeachNode.Body -> IfNode.TrueBranch -> a live
+        // AggregateNode whose Source references an outer-scope node. Confirms escape propagation
+        // composes through both ProcessForeach and ProcessIf, not just one of them in isolation.
+        var outerValue = new AggregateNode("outerValue", new PathExpression("input.customerId"), AggregateOperation.Count, null, null);
+
+        var innerLive = new AggregateNode("innerLive", new PathExpression("outerValue"), AggregateOperation.Count, null, null);
+        var innerIf = new IfNode(
+            "inner",
+            new ConstantExpression(true, Provenance),
+            new IfBranch(new WorkflowNode[] { innerLive }, new PathExpression("innerLive")),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression(0, Provenance)));
+
+        var loop = new ForeachNode(
+            "loop", new PathExpression("input.customerId"), "x", 20,
+            new WorkflowNode[] { innerIf }, new PathExpression("inner"));
+
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["result"] = new PathExpression("loop") });
+        var workflow = new WorkflowDefinition("Test", RequestType, ResultType(("result", new ListType(PrimitiveType.Int))),
+            new WorkflowNode[] { outerValue, loop }, returnNode);
+        var tools = Catalog();
+
+        var pruned = DeadNodeEliminator.Eliminate(workflow, tools);
+
+        Assert.Equal(new[] { "outerValue", "loop" }, pruned.Nodes.Select(n => n.Id));
+        var prunedForeach = Assert.IsType<ForeachNode>(pruned.Nodes[1]);
+        var prunedIf = Assert.IsType<IfNode>(Assert.Single(prunedForeach.Body));
+        Assert.Equal(new[] { "innerLive" }, prunedIf.TrueBranch.Nodes.Select(n => n.Id));
+    }
+
+    [Fact]
+    public void PrunesOuterScopeNodeWhenOnlyDeadInnerNodesWouldHaveReferencedIt()
+    {
+        // Negative twin of the above: the same three-level nesting, but the inner AggregateNode is
+        // itself dead (never referenced by the If's own branch Value), so its reference to the outer
+        // node must NOT escape, and the outer node must be correctly pruned.
+        var outerValue = new AggregateNode("outerValue", new PathExpression("input.customerId"), AggregateOperation.Count, null, null);
+
+        var innerDead = new AggregateNode("innerDead", new PathExpression("outerValue"), AggregateOperation.Count, null, null);
+        var innerIf = new IfNode(
+            "inner",
+            new ConstantExpression(true, Provenance),
+            new IfBranch(new WorkflowNode[] { innerDead }, new ConstantExpression(1, Provenance)),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression(0, Provenance)));
+
+        var loop = new ForeachNode(
+            "loop", new PathExpression("input.customerId"), "x", 20,
+            new WorkflowNode[] { innerIf }, new PathExpression("inner"));
+
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["result"] = new PathExpression("loop") });
+        var workflow = new WorkflowDefinition("Test", RequestType, ResultType(("result", new ListType(PrimitiveType.Int))),
+            new WorkflowNode[] { outerValue, loop }, returnNode);
+        var tools = Catalog();
+
+        var pruned = DeadNodeEliminator.Eliminate(workflow, tools);
+
+        Assert.Equal(new[] { "loop" }, pruned.Nodes.Select(n => n.Id));
+        var prunedForeach = Assert.IsType<ForeachNode>(pruned.Nodes[0]);
+        var prunedIf = Assert.IsType<IfNode>(Assert.Single(prunedForeach.Body));
+        Assert.Empty(prunedIf.TrueBranch.Nodes);
+    }
 }

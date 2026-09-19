@@ -81,6 +81,15 @@ prompt + tool catalog + input/output types
 The model only participates in the top half of this diagram. Once a candidate passes validation,
 everything below is ordinary deterministic code — no LLM involved in execution.
 
+Between IR conversion and validation, a deterministic (non-LLM) pass, `DeadNodeEliminator`, prunes IR
+nodes that are computed but never referenced downstream, as long as removing them is provably safe
+(no tool-call side effect — see `src/Flow.Compiler/DeadNodeEliminator.cs` for the exact rules).
+Because this runs *before* validation, a workflow that would previously have failed validation only
+because of a problem in an unreferenced, now-pruned node instead validates successfully — a
+deliberate behavior change, since validation only ever sees the already-cleaned-up workflow.
+Likewise, a call to a dead tool that would have failed at runtime no longer runs at all, since the
+call itself is removed.
+
 **Validation** (`Flow.Validation`, run as one fixed pipeline via `WorkflowValidator.CreateDefault()`):
 
 | Pass | Checks |
