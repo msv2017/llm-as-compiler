@@ -3,8 +3,8 @@
   aggregate outstandingBalance = unpaidInvoices.Sum(invoice => invoice.amount)
   sort oldestUnpaidSorted = unpaidInvoices.orderBy(invoice => invoice.createdAt, Ascending)
   aggregate oldestInvoice = oldestUnpaidSorted.First
-  if (outstandingBalance < 100):
-    if (oldestInvoice != null):
+  if (outstandingBalance < 100) -> refundDecision:
+    if (oldestInvoice != null) -> oldestInvoiceCheck:
       call refund = billing.createRefund(invoiceId: oldestInvoice.id)
       => true
     else:

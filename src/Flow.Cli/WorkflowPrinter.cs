@@ -34,7 +34,7 @@ public static class WorkflowPrinter
                 break;
 
             case IfNode ifNode:
-                builder.AppendLine($"{pad}if {PrintExpression(ifNode.Condition)}:");
+                builder.AppendLine($"{pad}if {PrintExpression(ifNode.Condition)} -> {ifNode.Id}:");
                 PrintNodes(ifNode.TrueBranch.Nodes, builder, indent + 1);
                 builder.AppendLine($"{innerPad}=> {PrintExpression(ifNode.TrueBranch.Value)}");
                 builder.AppendLine($"{pad}else:");

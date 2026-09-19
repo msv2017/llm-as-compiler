@@ -63,7 +63,7 @@ public class WorkflowPrinterTests
 
         var printed = WorkflowPrinter.Print(workflow);
 
-        Assert.Contains("if input.flag:", printed);
+        Assert.Contains("if input.flag -> check:", printed);
         Assert.Contains("=> true", printed);
         Assert.Contains("else:", printed);
         Assert.Contains("=> false", printed);
