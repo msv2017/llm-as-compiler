@@ -196,4 +196,26 @@ public class DeadNodeEliminatorTests
         var keptCall = Assert.IsType<CallNode>(pruned.Nodes[0]);
         Assert.Equal("demo.write", keptCall.ToolName);
     }
+
+    [Fact]
+    public void KeepsOuterScopeNodeReferencedOnlyFromInsideABranch()
+    {
+        // DataflowValidator.ValidateBranch legally lets a branch see outer-scope names
+        // (branchDefined = new HashSet<string>(outerDefinedBefore)) -- this proves a node only
+        // referenced that way survives, instead of being wrongly pruned as unreferenced.
+        var outerValue = new AggregateNode("outerValue", new PathExpression("input.customerId"), AggregateOperation.Count, null, null);
+        var ifNode = new IfNode(
+            "guard",
+            new ConstantExpression(true, Provenance),
+            new IfBranch(Array.Empty<WorkflowNode>(), new PathExpression("outerValue")),
+            new IfBranch(Array.Empty<WorkflowNode>(), new ConstantExpression(0, Provenance)));
+        var returnNode = new ReturnNode(new Dictionary<string, FlowExpression> { ["result"] = new PathExpression("guard") });
+        var workflow = new WorkflowDefinition("Test", RequestType, ResultType(("result", PrimitiveType.Int)),
+            new WorkflowNode[] { outerValue, ifNode }, returnNode);
+        var tools = Catalog();
+
+        var pruned = DeadNodeEliminator.Eliminate(workflow, tools);
+
+        Assert.Equal(new[] { "outerValue", "guard" }, pruned.Nodes.Select(n => n.Id));
+    }
 }

@@ -10,11 +10,17 @@ public static class DeadNodeEliminator
     public static WorkflowDefinition Eliminate(WorkflowDefinition workflow, ToolCatalog tools)
     {
         var live = ReferencedNames(workflow.Return.Fields.Values);
-        var prunedNodes = PruneScope(workflow.Nodes, live, tools);
+        var (prunedNodes, _) = PruneScope(workflow.Nodes, live, tools);
         return workflow with { Nodes = prunedNodes };
     }
 
-    private static IReadOnlyList<WorkflowNode> PruneScope(
+    // Returns the kept nodes for this scope, plus the "escaped" names: names this scope's own
+    // live set ended up referencing that don't correspond to any node defined in this scope --
+    // i.e. references to an outer scope (or "input"), which the caller must fold into its own
+    // live set. A branch/loop body may legally reference an outer-scope name (DataflowValidator's
+    // ValidateBranch seeds branchDefined from outerDefinedBefore), so that reference has to
+    // propagate back out, or the outer node could be wrongly pruned as unreferenced.
+    private static (IReadOnlyList<WorkflowNode> Kept, HashSet<string> Escaped) PruneScope(
         IReadOnlyList<WorkflowNode> nodes, HashSet<string> live, ToolCatalog tools)
     {
         var kept = new List<WorkflowNode>();
@@ -24,33 +30,49 @@ public static class DeadNodeEliminator
             if (IsPrunable(node, tools) && !live.Contains(node.Id))
                 continue;
 
-            var processed = ProcessNode(node, tools);
+            var (processed, innerEscaped) = ProcessNode(node, tools);
             kept.Add(processed);
             foreach (var name in ReferencedNames(OwnExpressions(processed)))
                 live.Add(name);
+            live.UnionWith(innerEscaped);
         }
         kept.Reverse();
-        return kept;
+
+        var localIds = new HashSet<string>(nodes.Select(n => n.Id));
+        var escaped = new HashSet<string>(live.Where(name => !localIds.Contains(name)));
+        return (kept, escaped);
     }
 
     // Recurses into an IfNode's branches / a ForeachNode's body first, so their own dead nodes
     // are pruned using that scope's own exit expression as the seed -- never the outer scope's.
-    private static WorkflowNode ProcessNode(WorkflowNode node, ToolCatalog tools) => node switch
+    // Returns names referenced from inside that scope but not defined inside it, so the caller
+    // can add them to its own live set (see PruneScope's doc comment).
+    private static (WorkflowNode Node, HashSet<string> Escaped) ProcessNode(WorkflowNode node, ToolCatalog tools) => node switch
     {
-        IfNode ifNode => ifNode with
-        {
-            TrueBranch = PruneBranch(ifNode.TrueBranch, tools),
-            FalseBranch = PruneBranch(ifNode.FalseBranch, tools)
-        },
-        ForeachNode foreachNode => foreachNode with
-        {
-            Body = PruneScope(foreachNode.Body, ReferencedNames(new[] { foreachNode.BodyValue }), tools)
-        },
-        _ => node
+        IfNode ifNode => ProcessIf(ifNode, tools),
+        ForeachNode foreachNode => ProcessForeach(foreachNode, tools),
+        _ => (node, new HashSet<string>())
     };
 
-    private static IfBranch PruneBranch(IfBranch branch, ToolCatalog tools) =>
-        branch with { Nodes = PruneScope(branch.Nodes, ReferencedNames(new[] { branch.Value }), tools) };
+    private static (WorkflowNode, HashSet<string>) ProcessIf(IfNode ifNode, ToolCatalog tools)
+    {
+        var (trueNodes, trueEscaped) = PruneScope(ifNode.TrueBranch.Nodes, ReferencedNames(new[] { ifNode.TrueBranch.Value }), tools);
+        var (falseNodes, falseEscaped) = PruneScope(ifNode.FalseBranch.Nodes, ReferencedNames(new[] { ifNode.FalseBranch.Value }), tools);
+        var updated = ifNode with
+        {
+            TrueBranch = ifNode.TrueBranch with { Nodes = trueNodes },
+            FalseBranch = ifNode.FalseBranch with { Nodes = falseNodes }
+        };
+        var escaped = new HashSet<string>(trueEscaped);
+        escaped.UnionWith(falseEscaped);
+        return (updated, escaped);
+    }
+
+    private static (WorkflowNode, HashSet<string>) ProcessForeach(ForeachNode foreachNode, ToolCatalog tools)
+    {
+        var (bodyNodes, escaped) = PruneScope(foreachNode.Body, ReferencedNames(new[] { foreachNode.BodyValue }), tools);
+        return (foreachNode with { Body = bodyNodes }, escaped);
+    }
 
     // Extend this switch whenever a new WorkflowNode kind is added -- default false (never prune)
     // is the safe choice for anything not explicitly known to be side-effect-free.
@@ -64,7 +86,7 @@ public static class DeadNodeEliminator
 
     // Extend this switch whenever a new WorkflowNode kind is added. Deliberately excludes
     // IfNode.TrueBranch/FalseBranch and ForeachNode.Body -- those are separate scopes, handled by
-    // ProcessNode/PruneBranch, not the outer scope's liveness set.
+    // ProcessNode/PruneBranch via the returned "escaped" set, not read directly here.
     private static IEnumerable<FlowExpression> OwnExpressions(WorkflowNode node) => node switch
     {
         CallNode call => call.Arguments.Values,
