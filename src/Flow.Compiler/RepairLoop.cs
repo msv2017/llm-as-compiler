@@ -46,6 +46,7 @@ public sealed class RepairLoop
             try
             {
                 workflow = CandidateToIrConverter.Convert(candidate, source.InputType, source.OutputType);
+                workflow = DeadNodeEliminator.Eliminate(workflow, tools);
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {
