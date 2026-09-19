@@ -61,21 +61,6 @@
         "id": "sendReminders"
       },
       {
-        "kind": "aggregate",
-        "source": {
-          "kind": "path",
-          "path": "sendReminders"
-        },
-        "operation": "Count",
-        "selector": {
-          "kind": "constant",
-          "value": true,
-          "source": "PROMPT",
-          "detail": "Count all reminders sent which are true"
-        },
-        "id": "countSent"
-      },
-      {
         "kind": "filter",
         "source": {
           "kind": "path",
